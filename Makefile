@@ -54,8 +54,7 @@ SRCS = \
 ACS = \
 	zcommon.acs	\
 	zdefs.acs	\
-	zspecial.acs	\
-	zwvars.acs
+	zspecial.acs
 
 $(EXENAME) : $(OBJS)
 	$(CC) $(OBJS) -o $(EXENAME) $(LDFLAGS)

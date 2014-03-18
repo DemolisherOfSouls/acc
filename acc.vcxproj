@@ -158,8 +158,12 @@
   <ItemGroup>
     <None Include="zcommon.acs" />
     <None Include="zdefs.acs" />
+    <None Include="zprops.acs" />
     <None Include="zspecial.acs" />
     <None Include="Makefile" />
+    <None Include="zstruct.acs" />
+    <None Include="ztypes.acs" />
+    <None Include="zwvars.acs" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

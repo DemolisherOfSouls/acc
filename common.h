@@ -93,19 +93,41 @@ class string : public std::string
 {
 public:
 	
-	string()				: std::string() {}
-	string(std::string s)	: std::string(s) {}
-	string(char* c)			: std::string(c) {}
-	string(char c, int i)	: std::string(i, c) {}
-
 	using std::string::operator=;
 	using std::string::operator+=;
 	using std::string::operator[];
 	using std::string::length;
 
+	string()				: std::string() {}
+	string(std::string s)	: std::string(s) {}
+	string(char* c)			: std::string(c) {}
+	string(char c, int i)	: std::string(i, c) {}
+
 	int length(int padding)
 	{
 		return (length() + padding);
+	}
+	string tolower()
+	{
+		string s = this->data();
+
+		for (int c = 0; c < s.length(); c++)
+		{
+			if (s[c] >= 'A' && s[c] <= 'Z')
+				s[c] += 32;
+		}
+		return s;
+	}
+	string toupper()
+	{
+		string s = this->data();
+
+		for (int c = 0; c < s.length(); c++)
+		{
+			if (s[c] >= 'a' && s[c] <= 'z')
+				s[c] -= 32;
+		}
+		return s;
 	}
 };
 
@@ -118,19 +140,37 @@ class vector : public std::vector<type>
 {
 	int last_index;
 
-	typedef type* pointer_type;
-	typedef const pointer_type locked_type;
+	typedef type& reference;
+	typedef type* pointer;
+	typedef const type& const_reference;
+	typedef const type* const_pointer;
+	typedef int size_type;
+	typedef type value_type;
+
+	pointer a_pointer(reference item)
+	{
+		return **item;
+	}
 
 public:
 
-	vector(int size)			: std::vector(size) {}
-	vector(locked_type rItem)	: std::vector(rItem) {}
+	using std::vector::operator=;
+	using std::vector::resize;
+	using std::vector::push_back;
+	using std::vector::at;
+	using std::vector::size;
+	using std::vector::data;
+	using std::vector::empty;
 
-	void operator<< (locked_type rItem)
+	vector() : std::vector() {}
+	vector(int size) : std::vector(size) {}
+	vector(const_reference rItem) : std::vector(rItem) {}
+
+	void operator<< (type rItem)
 	{
 		add(rItem);
 	}
-	pointer_type operator[] (int index)
+	pointer operator[] (int index)
 	{
 		if (index >= size())
 		{
@@ -140,12 +180,8 @@ public:
 		{
 			index = 0;
 		}
-		return at(index);
+		return a_pointer(at(index));
 	}
-
-	using std::vector::operator=;
-	using std::vector::resize;
-	using std::vector::push_back;
 
 	int lastIndex()
 	{
@@ -156,9 +192,9 @@ public:
 		return size();
 	}
 
-	pointer_type lastAdded()
+	pointer lastAdded()
 	{
-		return this->data()[last_index];
+		return a_pointer(at(last_index));
 	}
 
 	void add(type item)

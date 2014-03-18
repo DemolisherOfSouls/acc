@@ -429,22 +429,22 @@ enum pcd_t : int
 
 // PUBLIC FUNCTION PROTOTYPES ----------------------------------------------
 
-void PC_OpenObject(char *name, size_t size, int flags);
+void PC_OpenObject(string name, int size, int flags);
 void PC_CloseObject();
-void PC_Append(void *buffer, size_t size);
+void PC_Append(byte *buffer, int size);
 void PC_AppendByte(byte val);
 void PC_AppendWord(short val);
 void PC_AppendInt(int val);
-void PC_AppendString(char *string);
+void PC_AppendString(string string);
 void PC_AppendCmd(int command);
 void PC_AppendPushVal(int val);
 void PC_AppendShrink(byte val);
-void PC_Write(void *buffer, size_t size, int address);
+void PC_Write(byte *buffer, int size, int address);
 void PC_WriteByte(byte val, int address);
 void PC_WriteInt(int val, int address);
 void PC_WriteString(char *string, int address);
 void PC_WriteCmd(int command, int address);
-void PC_Skip(size_t size);
+void PC_Skip(int size);
 void PC_SkipInt();
 void PC_AddScript(int number, int type, int flags, int argCount);
 void PC_SetScriptVarCount(int number, int type, int varCount);
@@ -453,7 +453,7 @@ void PC_PutMapVariable(int index, int value);
 void PC_NameMapVariable(int index, struct symbolNode_t *sym);
 void PC_AddArray(int index, int size);
 void PC_InitArray(int index, int *entries, bool hasStrings);
-int  PC_AddImport(char *name);
+int  PC_AddImport(string name);
 
 // PUBLIC DATA DECLARATIONS ------------------------------------------------
 

@@ -100,7 +100,7 @@ struct symbolNode_t
 {
 	struct symbolNode_t *left;
 	struct symbolNode_t *right;
-	char *name;
+	string name;
 	symbolType_t type;
 	bool unused;
 	bool imported;
@@ -120,12 +120,12 @@ struct symbolNode_t
 // PUBLIC FUNCTION PROTOTYPES ----------------------------------------------
 
 void SY_Init();
-symbolNode_t *SY_Find(char *name);
-symbolNode_t *SY_FindLocal(char *name);
-symbolNode_t *SY_FindGlobal(char *name);
-symbolNode_t *SY_InsertLocal(char *name, symbolType_t type);
-symbolNode_t *SY_InsertGlobal(char *name, symbolType_t type);
-symbolNode_t *SY_InsertGlobalUnique(char *name, symbolType_t type);
+symbolNode_t *SY_Find(string name);
+symbolNode_t *SY_FindLocal(string name);
+symbolNode_t *SY_FindGlobal(string name);
+symbolNode_t *SY_InsertLocal(string name, symbolType_t type);
+symbolNode_t *SY_InsertGlobal(string name, symbolType_t type);
+symbolNode_t *SY_InsertGlobalUnique(string name, symbolType_t type);
 void SY_FreeLocals();
 void SY_FreeGlobals();
 void SY_FreeConstants(int depth);

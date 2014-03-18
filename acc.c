@@ -7,11 +7,11 @@
 
 // HEADER FILES ------------------------------------------------------------
 
+#include <iostream>
+#include <fstream>
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
-#include <new>
 #include "common.h"
 #include "token.h"
 #include "error.h"
@@ -20,6 +20,11 @@
 #include "pcode.h"
 #include "parse.h"
 #include "strlist.h"
+
+using std::fstream;
+using std::ios;
+using std::cerr;
+using std::endl;
 
 // MACROS ------------------------------------------------------------------
 
@@ -47,14 +52,14 @@ static void ProcessArgs();
 bool acs_BigEndianHost;
 bool acs_VerboseMode;
 bool acs_DebugMode;
-FILE *acs_DebugFile;
-char acs_SourceFileName[MAX_FILE_NAME_LENGTH];
+string acs_DebugFile;
+string acs_SourceFileName;
 
 // PRIVATE DATA DEFINITIONS ------------------------------------------------
 
 static int ArgCount;
 static char **ArgVector;
-static char ObjectFileName[MAX_FILE_NAME_LENGTH];
+static string ObjectFileName;
 
 // CODE --------------------------------------------------------------------
 
@@ -80,34 +85,29 @@ int main(int argc, char **argv)
 	PC_CloseObject();
 	TK_CloseSource();
 
-	MS_Message(MSG_NORMAL, "\n\"%s\":\n  %d line%s (%d included)\n",
-		acs_SourceFileName, tk_Line, tk_Line == 1 ? "" : "s",
-		tk_IncludedLines);
-	MS_Message(MSG_NORMAL, "  %d function%s\n  %d script%s\n",
-		pc_FunctionCount, pc_FunctionCount == 1 ? "" : "s",
-		pa_ScriptCount, pa_ScriptCount == 1 ? "" : "s");
+	cerr << endl << "\"" << acs_SourceFileName << "\":" << endl
+		<< " " << tk_Line << " line" << ((tk_Line == 1) ? "" : "s")
+		<< " (" << tk_IncludedLines << " included)" << endl;
+
+	cerr << "  " << pCode_FunctionCount << " function"
+		<< ((pCode_FunctionCount == 1) ? "" : "s") << endl
+		<< " " << pCode_ScriptCount << ((pa_ScriptCount == 1) ? "" : "s");
+
+
+
 	for (i = 0; pa_TypedScriptCounts[i].TypeName; i++)
 	{
 		if (pa_TypedScriptCounts[i].TypeCount > 0)
 		{
-			MS_Message(MSG_NORMAL, "%5d %s\n",
-				pa_TypedScriptCounts[i].TypeCount,
-				pa_TypedScriptCounts[i].TypeName);
+			cerr << pa_TypedScriptCounts[i].TypeCount << " " << pa_TypedScriptCounts[i].TypeName;
 		}
 	}
-	MS_Message(MSG_NORMAL, "  %d global variable%s\n"
-						   "  %d world variable%s\n"
-						   "  %d map variable%s\n"
-						   "  %d global array%s\n"
-						   "  %d world array%s\n",
-		pa_GlobalVarCount, pa_GlobalVarCount == 1 ? "" : "s",
-		pa_WorldVarCount, pa_WorldVarCount == 1 ? "" : "s",
-		pa_MapVarCount, pa_MapVarCount == 1 ? "" : "s",
-		pa_GlobalArrayCount, pa_GlobalArrayCount == 1 ? "" : "s",
-		pa_WorldArrayCount, pa_WorldArrayCount == 1 ? "" : "s"
-		);
-	MS_Message(MSG_NORMAL, "  object \"%s\": %d bytes\n",
-		ObjectFileName, pc_Address);
+	cerr << "  " << pa_GlobalVarCount << " global variable" << (pa_GlobalVarCount == 1 ? "" : "s") << endl
+		<< "  " << pa_WorldVarCount << " world variable" << (pa_WorldVarCount == 1 ? "" : "s") << endl
+		<< "  " << pa_MapVarCount << " map variable" << (pa_MapVarCount == 1 ? "" : "s") << endl
+		<< "  " << pa_GlobalArrayCount << " global array" << (pa_GlobalArrayCount == 1 ? "" : "s") << endl
+		<< "  " << pa_WorldArrayCount << " world array" << (pa_WorldArrayCount == 1 ? "" : "s") << endl;
+	cerr << "  object \"" << ObjectFileName << "\": " << pCode_Buffer.size() << " bytes" << endl;
 	ERR_RemoveErrorFile();
 	return 0;
 }
@@ -120,6 +120,7 @@ int main(int argc, char **argv)
 
 static void DisplayBanner()
 {
+	cerr << 
 	fprintf(stderr, "\nOriginal ACC Version 1.10 by Ben Gokey\n");
 	fprintf(stderr, "Copyright (c) "COPYRIGHT_YEARS_TEXT
 		" Raven Software, Corp.\n\n");
@@ -131,7 +132,7 @@ static void DisplayBanner()
 	fprintf(stderr, "Some additions by Michael \"Necromage\" Weber\n");
 	fprintf(stderr, "Error reporting improvements and limit expansion by Ty Halderman\n");
 	fprintf(stderr, "Include paths added by Pascal vd Heiden\n");
-	fprintf(stderr, "Additional operators, structs, and methods added by Ryan \"DemolisherOfSouls\" Taylor");
+	fprintf(stderr, "Additional operators, structs, and methods added by J. Ryan \"DemolisherOfSouls\" Taylor");
 }
 
 //==========================================================================

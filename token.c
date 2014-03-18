@@ -316,17 +316,17 @@ void TK_AddIncludePath(string sourcePath)
 {
 	if(NumIncludePaths < MAX_INCLUDE_PATHS)
 	{
+		// Not ending with directory delimiter?
+		if (!MS_IsDirectoryDelimiter(sourcePath[sourcePath.length(-1)]))
+		{
+			// Add a directory delimiter to the include path
+			sourcePath += "/";
+		}
+
 		// Add to list
 		IncludePaths.add(sourcePath);
 
-		// Not ending with directory delimiter?
-		if (!MS_IsDirectoryDelimiter(IncludePaths.lastAdded.data()[0]))
-		{
-			// Add a directory delimiter to the include path
-			strcat(IncludePaths[NumIncludePaths], "/");
-		}
-		MS_Message(MSG_DEBUG, "Add include path %d: \"%s\"\n", NumIncludePaths, IncludePaths[NumIncludePaths]);
-		NumIncludePaths++;
+		MS_Message(MSG_DEBUG, "Add include path %d: \"%s\"\n", IncludePaths.size(), IncludePaths.);
 	}
 }
 

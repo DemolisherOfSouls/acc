@@ -1,0 +1,77 @@
+//**************************************************************************
+//**
+//** zstruct.acs
+//**
+//**************************************************************************
+#include "zcommon.acs"
+#include "ztypes.acs"
+#include "zprops.acs"
+
+struct actor
+{
+	tid actorTID;
+	tid tracerTID;
+	tid masterTID;
+	tid targetTID;
+
+	int health,
+		maxhealth;
+
+	int height,
+		radius;
+
+	fixed x,y,z;
+
+	fixed angle,
+		  pitch,
+		  speed;
+
+	actor(tid id)
+	{
+		actorTID = id;
+		//health = GetActorProperty(id, APROP_Health);
+	}
+
+};
+
+struct coord2D
+{
+	fixed x, y;
+
+	coord2D(fixed a, fixed b)
+	{
+		x = a;
+		y = b;
+	}
+
+	void centerX()
+	{
+		x /= 1.0;
+		x *= 1.0;
+		x += 0.1;
+	}
+
+	bool hudsize()
+	{
+		return (_HUDSIZE_ != false);
+	}
+};
+
+struct mapspot{
+	fixed x, y, z, angle, pitch;
+
+	mapspot(fixed a, fixed b, fixed c)
+	{
+		x = a, y = b, z = c;
+	}
+	mapspot(fixed a, fixed b, fixed c, fixed d)
+	{
+		x = a, y = b, z = c;
+		angle = d;
+	}
+	mapspot(fixed a, fixed b, fixed c, fixed d, fixed e)
+	{
+		x = a, y = b, z = c;
+		angle = d, pitch = e;
+	}
+};

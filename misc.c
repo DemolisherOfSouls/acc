@@ -21,7 +21,6 @@
 #endif
 #include <iostream>
 #include <fstream>
-#include <string>
 #include "common.h"
 #include "misc.h"
 #include "error.h"
@@ -88,7 +87,7 @@ int MS_LittleUINT(int val)
 // MS_LoadFile
 //
 //==========================================================================
-vector<char> MS_LoadFile(string name)
+void MS_LoadFile(string name, vector<char>* DataPointer)
 {
 	if (name.length() >= MAX_FILE_NAME_LENGTH)
 		ERR_Exit(ERR_FILE_NAME_TOO_LONG, false, name);
@@ -101,20 +100,14 @@ vector<char> MS_LoadFile(string name)
 	struct stat fileInfo;
 	int size = fileInfo.st_size;
 
-	char* read = new char[size];
-	vector<char> data = vector<char>(size);
+	DataPointer->resize(size);
 
-	file.read(read, size);
-	
-	for (int c = 0; c < size; c++)
-		data.add(read[c]);
+	file.read(DataPointer->data(), size);
 
 	if (file.fail())
 		ERR_Exit(ERR_CANT_READ_FILE, false, name);
 
 	file.close();
-
-	return data;
 }
 
 //==========================================================================
@@ -156,31 +149,16 @@ bool MS_SaveFile(string name, char *buffer, int length)
 
 //==========================================================================
 //
-// MS_StrLwr
-//
-//==========================================================================
-string MS_StrLwr(string s)
-{
-	for (int c = 0; c < s.length(); c++)
-	{
-		if (s[c] >= 'A' && s[c] <= 'Z')
-			s[c] += 32;
-	}
-	return s;
-}
-
-//==========================================================================
-//
 // MS_SuggestFileExt
 //
 //==========================================================================
 void MS_SuggestFileExt(string &base, string &extension)
 {
-	int c = base.length(-1);
+	int c = base.length();
 	
-	while(!MS_IsDirectoryDelimiter(base[c]) && c > 0)
+	while(!MS_IsDirectoryDelimiter(base[--c]) && c > 0)
 	{
-		if(base[c--] == '.')
+		if(base[c] == '.')
 			return;
 	}
 	base.append(extension);
@@ -207,16 +185,15 @@ bool MS_IsDirectoryDelimiter(char foo)
 //==========================================================================
 void MS_StripFileExt(string &name)
 {
-	int c = name.length(-1);
+	int c = name.length();
 
-	while(!MS_IsDirectoryDelimiter(name[c]) && c > 0)
+	while(!MS_IsDirectoryDelimiter(name[--c]) && c > 0)
 	{
 		if(name[c] == '.')
 		{
 			name = name.substr(0, c + 1);
 			return;
 		}
-		c--;
 	}
 }
 
@@ -231,13 +208,13 @@ bool MS_StripFilename(string &name)
 {
 	int c = name.length();
 
-	do
+	while (!MS_IsDirectoryDelimiter(name[--c]))
 	{
-		if(--c <= 0)
+		if(c == 0)
 		{ // No directory delimiter
 			return false;
 		}
-	} while(!MS_IsDirectoryDelimiter(name[c]));
+	}
 	name = name.substr(0, c + 1);
 	return true;
 }
@@ -247,25 +224,50 @@ bool MS_StripFilename(string &name)
 // MS_Message
 //
 //==========================================================================
-void MS_Message(msg_t type, string text, ...)
+#define MS_MSG_INIT(msg) if (msg == MSG_VERBOSE && !acs_VerboseMode || msg == MSG_DEBUG && !acs_DebugMode) return; fstream stream
+#define MS_MSG_CHECK(msg) { if (msg == MSG_DEBUG && acs_DebugFile) stream = fstream(acs_DebugFile->_tmpfname, ios::app | ios::out); }
+#define MS_MSG_WRITE(msg,data) { if (msg == MSG_DEBUG && acs_DebugFile) { stream << data; } else { std::cout << data; } }
+#define MS_MSG_CLOSE(msg) { if(msg == MSG_DEBUG && acs_DebugFile) { stream << std::endl; stream.flush(); stream.close(); } else { std::cout << std::endl; } }
+
+void MS_Message(msg_t msg, string text)
 {
-	FILE *fp;
-	va_list argPtr;
+	MS_MSG_INIT(msg);
+	MS_MSG_CHECK(msg);
+	MS_MSG_WRITE(msg, text);
+	MS_MSG_CLOSE(msg);
+}
 
-	if (type == MSG_VERBOSE && !acs_VerboseMode)
-		return;
-	if (type == MSG_DEBUG && !acs_DebugMode)
-		return;
+template <class type>
+void MS_Message(msg_t msg, string text, type info)
+{
+	MS_MSG_INIT(msg);
+	MS_MSG_CHECK(msg);
+	MS_MSG_WRITE(msg, text);
+	MS_MSG_WRITE(msg, info);
+	MS_MSG_CLOSE(msg);
+}
 
-	fp = stdout;
-	if (type == MSG_DEBUG && acs_DebugFile)
-		fp = acs_DebugFile;
-	if(!text.empty())
-	{
-		va_start(argPtr, text);
-		vfprintf(fp, text.c_str(), argPtr);
-		va_end(argPtr);
-	}
+template <class type, class type2>
+void MS_Message(msg_t msg, string text, type info, type2 info2)
+{
+	MS_MSG_INIT(msg);
+	MS_MSG_CHECK(msg);
+	MS_MSG_WRITE(msg, text);
+	MS_MSG_WRITE(msg, info);
+	MS_MSG_WRITE(msg, info2);
+	MS_MSG_CLOSE(msg);
+}
+
+template <class type, class type2, class type3>
+void MS_Message(msg_t msg, string text, type info, type2 info2, type3 info3)
+{
+	MS_MSG_INIT(msg);
+	MS_MSG_CHECK(msg);
+	MS_MSG_WRITE(msg, text);
+	MS_MSG_WRITE(msg, info);
+	MS_MSG_WRITE(msg, info2);
+	MS_MSG_WRITE(msg, info3);
+	MS_MSG_CLOSE(msg);
 }
 
 //==========================================================================

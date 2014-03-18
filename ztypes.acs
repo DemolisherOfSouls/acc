@@ -1,10 +1,12 @@
-
 //**************************************************************************
 //**
-//** zcommon.acs
+//** ztypes.acs
 //**
 //**************************************************************************
 
-#include "zspecial.acs"
-#include "zdefs.acs"
-#include "zwvars.acs"
+typedef int fixed;
+typedef int tid;
+//typedef int char;
+typedef int byte;
+typedef int short;
+typedef int long;

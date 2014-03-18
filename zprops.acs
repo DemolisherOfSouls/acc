@@ -1,0 +1,31 @@
+//**************************************************************************
+//**
+//** zprops.acs
+//**
+//**************************************************************************
+
+//Globally set hudsize with the #pragma hudsize x y sb
+//
+//Once set, all calls to HudMessage are preceeded by SetHUDSize(x,y,sb);
+//
+//SetHUDSize properties
+static bool _HUDSIZE;
+static int _HUDSIZE_X;
+static int _HUDSIZE_Y;
+static bool _HUDSIZE_SBAR;
+
+//Map properties
+static int _MAP;
+static int _CLUSTER;
+static int _SECRETS_TOTAL;
+static int _SECRETS_FOUND;
+static int _ITEMS_TOTAL;
+static int _ITEMS_FOUND;
+static int _ENEMIES_TOTAL;
+static int _ENEMIES_KILLED;
+static int _SKILL;
+static bool _IS_SINGLEPLAYER;
+static bool _IS_COOPERTIVE;
+static bool _IS_DEATHMATCH;
+static str _MAPLUMP;
+static str _MAPNAME;
