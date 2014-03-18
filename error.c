@@ -7,14 +7,18 @@
 
 // HEADER FILES ------------------------------------------------------------
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <iostream>
+#include <fstream>
 #include <stdarg.h>
-#include <string.h>
 #include "common.h"
 #include "error.h"
 #include "token.h"
 #include "misc.h"
+
+using std::fstream;
+using std::ios;
+using std::cerr;
+using std::endl;
 
 // MACROS ------------------------------------------------------------------
 
@@ -22,11 +26,11 @@
 
 // TYPES -------------------------------------------------------------------
 
-typedef enum
+enum errorInfo_e : int
 {
 	ERRINFO_GCC,
 	ERRINFO_VCC
-} errorInfo_e;
+};
 
 // EXTERNAL FUNCTION PROTOTYPES --------------------------------------------
 
@@ -34,10 +38,10 @@ typedef enum
 
 // PRIVATE FUNCTION PROTOTYPES ---------------------------------------------
 
-static char *ErrorText(error_t error);
-static char *ErrorFileName(void);
-static void eprintf(const char *fmt, ...);
-static void veprintf(const char *fmt, va_list args);
+static string ErrorText(int error);
+static string ErrorFileName();
+static void eprintf(string fmt, ...);
+static void veprintf(string fmt, va_list args);
 
 // EXTERNAL DATA DECLARATIONS ----------------------------------------------
 
@@ -50,7 +54,7 @@ extern char acs_SourceFileName[MAX_FILE_NAME_LENGTH];
 static struct
 {
 	error_t number;
-	char *name;
+	string name;
 } ErrorNames[] =
 {
 	{ ERR_MISSING_SEMICOLON, "Missing semicolon." },
@@ -151,7 +155,7 @@ static struct
 	{ ERR_TERMINATE_IN_FUNCTION, "Terminate cannot be used inside a function." },
 	{ ERR_RESTART_IN_FUNCTION, "Restart cannot be used inside a function." },
 	{ ERR_RETURN_OUTSIDE_FUNCTION, "Return can only be used inside a function." },
-	{ ERR_FUNC_ARGUMENT_COUNT, "Function %s should have %d argument%s." },
+	{ ERR_FUNC_ARGUMENT_COUNT, "Function %s should have %d arguments." },
 	{ ERR_EOF, "Unexpected end of file." },
 	{ ERR_UNDEFINED_FUNC, "Function %s is used but not defined." },
 	{ ERR_TOO_MANY_ARRAY_DIMS, "Too many array dimensions." },
@@ -182,13 +186,16 @@ static struct
 	{ ERR_HEXEN_COMPAT, "Attempt to use feature not supported by Hexen." },
 	{ ERR_NOT_HEXEN, "Cannot save; new features are not compatible with Hexen." },
 	{ ERR_SPECIAL_RANGE, "Line specials with values higher than 255 require #nocompact." },
-	{ ERR_NONE, NULL }
+	{ ERR_BAD_CONSTRUCTOR, "%s: Constructor is not properly formed." },
+	{ ERR_BAD_METHOD, "Method %s is not found within %s." },
+	{ ERR_NO_STRUCT_ARRAY_INIT, "%s: Cannot auto-initialize an array of structs, must be initialized to default constructor."},
+	{ ERR_NONE, "" }
 };
 
-static FILE *ErrorFile;
+static fstream ErrorFile;
 static int ErrorCount;
 static errorInfo_e ErrorFormat;
-static char *ErrorSourceName;
+static string ErrorSourceName;
 static int ErrorSourceLine;
 
 // CODE --------------------------------------------------------------------
@@ -198,8 +205,7 @@ static int ErrorSourceLine;
 // ERR_ErrorAt
 //
 //==========================================================================
-
-void ERR_ErrorAt(char *source, int line)
+void ERR_ErrorAt(string source, int line)
 {
 	ErrorSourceName = source;
 	ErrorSourceLine = line;
@@ -210,8 +216,7 @@ void ERR_ErrorAt(char *source, int line)
 // ERR_Error
 //
 //==========================================================================
-
-void ERR_Error(error_t error, boolean info, ...)
+void ERR_Error(int error, bool info, ...)
 {
 	va_list args;
 	va_start(args, info);
@@ -224,8 +229,7 @@ void ERR_Error(error_t error, boolean info, ...)
 // ERR_Exit
 //
 //==========================================================================
-
-void ERR_Exit(error_t error, boolean info, ...)
+void ERR_Exit(int error, bool info, ...)
 {
 	va_list args;
 	va_start(args, info);
@@ -239,18 +243,16 @@ void ERR_Exit(error_t error, boolean info, ...)
 // ERR_Finish
 //
 //==========================================================================
-
-void ERR_Finish(void)
+void ERR_Finish()
 {
-	if(ErrorFile)
+	if (ErrorFile.is_open())
 	{
-		fclose(ErrorFile);
-		ErrorFile = NULL;
+		ErrorFile.flush();
+		ErrorFile.close();
 	}
+	
 	if(ErrorCount)
-	{
 		exit(1);
-	}
 }
 
 //==========================================================================
@@ -258,88 +260,87 @@ void ERR_Finish(void)
 // ShowError
 //
 //==========================================================================
-
-void ERR_ErrorV(error_t error, boolean info, va_list args)
+void ERR_ErrorV(int error, bool info, va_list args)
 {
-	char *text;
-	boolean showLine = NO;
-	static boolean showedInfo = NO;
+	string text;
+	bool showLine = false;
+	static bool showedInfo = false;
 
-	if(!ErrorFile)
+	if(!ErrorFile.is_open())
+		ErrorFile.open(ErrorFileName(), ios::out| ios::trunc);
+	
+	if (ErrorCount == 0)
+		cerr << endl << "**** ERROR ****" << endl;
+	
+	else if(ErrorCount >= 100)
 	{
-		ErrorFile = fopen(ErrorFileName(), "w");
-	}
-	if(ErrorCount == 0)
-	{
-		fprintf(stderr, "\n**** ERROR ****\n");
-	}
-	else if(ErrorCount == 100)
-	{
-		eprintf("More than 100 errors. Can't continue.\n");
+		ErrorFile << "More than 100 errors. Can't continue." << endl;
+		cerr << "More than 100 errors. Can't continue." << endl;
 		ERR_Finish();
 	}
 	ErrorCount++;
-	if(info == YES)
+	if(info)
 	{
-		char *source;
+		string source;
 		int line;
 
-		if(ErrorSourceName)
+		if(!ErrorSourceName.empty())
 		{
 			source = ErrorSourceName;
 			line = ErrorSourceLine;
-			ErrorSourceName = NULL;
+			ErrorSourceName.clear();
 		}
 		else
 		{
 			source = tk_SourceName;
 			line = tk_Line;
-			showLine = YES;
+			showLine = true;
 		}
-		if(showedInfo == NO)
-                { // Output info compatible with older ACCs
-                  // for editors that expect it.
-			showedInfo = YES;
-                        eprintf("Line %d in file \"%s\" ...\n", line, source);
+		if(!showedInfo)
+        { // Output info compatible with older ACCs
+          // for editors that expect it.
+			showedInfo = true;
+			ErrorFile << "Line " << line << " in file \"" << source << "\" ..." << endl;
+			cerr << "Line " << line << " in file \"" << source << "\" ..." << endl;
 		}
 		if(ErrorFormat == ERRINFO_GCC)
 		{
-			eprintf("%s:%d: ", source, line);
+			ErrorFile << source << ":" << line << ": ";
+			cerr << source << ":" << line << ": ";
 		}
 		else
 		{
-			eprintf("%s(%d) : ", source, line);
+			ErrorFile << source << "(" << line << ") : ";
+			cerr << source << "(" << line << ") : ";
 			if(error != ERR_NONE)
 			{
-				eprintf("error %04d: ", error);
+				ErrorFile << "error " << error << ": ";
+				cerr << "error " << error << ": ";
 			}
 		}
 	}
 	if(error != ERR_NONE)
 	{
 		text = ErrorText(error);
-		if(text != NULL)
+		if(!text.empty())
 		{
 			veprintf(text, args);
 		}
-		eprintf("\n");
+		ErrorFile << endl;
+		cerr << endl;
 		if(showLine)
 		{
 			// deal with master source line and position indicator - Ty 07jan2000
 			MasterSourceLine[MasterSourcePos] = '\0';  // pre-incremented already
-			eprintf("> %s\n", MasterSourceLine);  // the string 
-			eprintf(">%*s\n", MasterSourcePos, "^");  // pointer to error
+			MasterSourceLine = MasterSourceLine.
+
+			ErrorFile << "> " << MasterSourceLine << endl;
+			ErrorFile << ">" << string(' ', MasterSourcePos) << "^" << endl;
+
+			cerr << "> " << MasterSourceLine << endl;
+			cerr << ">" << string(' ', MasterSourcePos) << "^" << endl;
 		}
 	}
-#if 0
-	else
-	{
-		va_list args2;
-		va_start(va_arg(args,char*), args2);
-		veprintf(va_arg(args,char*), args2);
-		va_end(args2);
-	}
-#endif
 }
 
 //==========================================================================
@@ -347,32 +348,39 @@ void ERR_ErrorV(error_t error, boolean info, va_list args)
 // ERR_RemoveErrorFile
 //
 //==========================================================================
-
-void ERR_RemoveErrorFile(void)
+void ERR_RemoveErrorFile()
 {
-	remove(ErrorFileName());
+	remove(ErrorFileName().c_str());
 }
 
 //==========================================================================
 //
-// ERR_ErrorFileName
+// ErrorFileName
 //
 //==========================================================================
-
-static char *ErrorFileName(void)
+static string ErrorFileName()
 {
-	static char errFileName[MAX_FILE_NAME_LENGTH];
+	string errFileName;
 
-	strcpy(errFileName, acs_SourceFileName);
-	if(MS_StripFilename(errFileName) == NO)
-	{
-		strcpy(errFileName, ERROR_FILE_NAME);
-	}
+	errFileName = acs_SourceFileName;
+
+	if(!MS_StripFilename(errFileName))
+		errFileName = ERROR_FILE_NAME;
 	else
-	{
-		strcat(errFileName, ERROR_FILE_NAME);
-	}
+		errFileName += ERROR_FILE_NAME;
+
 	return errFileName;
+}
+
+//==========================================================================
+//
+// ERR_BadAlloc - [JRT]
+// new_handler
+//
+//==========================================================================
+void ERR_BadAlloc()
+{
+	ERR_Exit(ERR_OUT_OF_MEMORY, false);
 }
 
 //==========================================================================
@@ -380,19 +388,16 @@ static char *ErrorFileName(void)
 // ErrorText
 //
 //==========================================================================
-
-static char *ErrorText(error_t error)
+static string ErrorText(int error)
 {
 	int i;
 
 	for(i = 0; ErrorNames[i].number != ERR_NONE; i++)
 	{
 		if(error == ErrorNames[i].number)
-		{
 			return ErrorNames[i].name;
-		}
 	}
-	return NULL;
+	return "";
 }
 
 //==========================================================================
@@ -400,8 +405,7 @@ static char *ErrorText(error_t error)
 // eprintf
 //
 //==========================================================================
-
-static void eprintf(const char *fmt, ...)
+static void eprintf(string fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
@@ -414,23 +418,11 @@ static void eprintf(const char *fmt, ...)
 // veprintf
 //
 //==========================================================================
-
-static void veprintf(const char *fmt, va_list args)
+static void veprintf(string fmt, va_list args)
 {
-#ifdef va_copy
-	va_list copy;
-	va_copy(copy, args);
-#endif
-	vfprintf(stderr, fmt, args);
+	cerr << fmt << args;
 	if(ErrorFile)
 	{
-#ifdef va_copy
-		vfprintf(ErrorFile, fmt, copy);
-#else
-		vfprintf(ErrorFile, fmt, args);
-#endif
+		ErrorFile << fmt << args;
 	}
-#ifdef va_copy
-	va_end(copy);
-#endif
 }

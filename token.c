@@ -23,7 +23,6 @@
 #include <stdlib.h>
 #endif
 #include <stdio.h>
-#include <string.h>
 #include <ctype.h>
 #include "common.h"
 #include "token.h"
@@ -36,30 +35,31 @@
 
 #define NON_HEX_DIGIT 255
 #define MAX_NESTED_SOURCES 16
+#define MAX_FILENAMES_SIZE	4096
 
 // TYPES -------------------------------------------------------------------
 
-typedef enum
+enum chr_t : char
 {
 	CHR_EOF,
 	CHR_LETTER,
 	CHR_NUMBER,
 	CHR_QUOTE,
 	CHR_SPECIAL
-} chr_t;
+};
 
-typedef struct
+struct nestInfo_t
 {
 	char *name;
 	char *start;
 	char *end;
 	char *position;
 	int line;
-	boolean incLineNumber;
-	boolean imported;
+	bool incLineNumber;
+	bool imported;
 	enum ImportModes prevMode;
 	char lastChar;
-} nestInfo_t;
+};
 
 // EXTERNAL FUNCTION PROTOTYPES --------------------------------------------
 
@@ -68,23 +68,23 @@ typedef struct
 // PRIVATE FUNCTION PROTOTYPES ---------------------------------------------
 
 static int SortKeywords(const void *a, const void *b);
-static void SetLocalIncludePath(char *sourceName);
+static void SetLocalIncludePath(string sourceName);
 static int PopNestedSource(enum ImportModes *prevMode);
-static void ProcessLetterToken(void);
-static void ProcessNumberToken(void);
+static void ProcessLetterToken();
+static void ProcessNumberToken();
 static void EvalFixedConstant(int whole);
-static void EvalHexConstant(void);
-static void EvalRadixConstant(void);
+static void EvalHexConstant();
+static void EvalRadixConstant();
 static int DigitValue(char digit, int radix);
-static void ProcessQuoteToken(void);
-static void ProcessSpecialToken(void);
-static boolean CheckForKeyword(void);
-static boolean CheckForLineSpecial(void);
-static boolean CheckForConstant(void);
-static void NextChr(void);
-static void SkipComment(void);
-static void SkipCPPComment(void);
-static void BumpMasterSourceLine(char Chr, boolean clear); // master line - Ty 07jan2000
+static void ProcessQuoteToken();
+static void ProcessSpecialToken();
+static bool CheckForKeyword();
+static bool CheckForLineSpecial();
+static bool CheckForConstant();
+static void NextChr();
+static void SkipComment();
+static void SkipCPPComment();
+static void BumpMasterSourceLine(char Chr, bool clear); // master line - Ty 07jan2000
 static char *AddFileName(const char *name);
 static int OctalChar();
 
@@ -95,45 +95,45 @@ static int OctalChar();
 tokenType_t tk_Token;
 int tk_Line;
 int tk_Number;
-char *tk_String;
+string tk_String;
 int tk_SpecialValue;
 int tk_SpecialArgCount;
-char *tk_SourceName;
+string tk_SourceName;
 int tk_IncludedLines;
-boolean forSemicolonHack;
-char MasterSourceLine[MAX_STATEMENT_LENGTH+1];  // master line - Ty 07jan2000
+bool forSemicolonHack;
+string MasterSourceLine;  // master line - Ty 07jan2000
 int MasterSourcePos;      // master position - Ty 07jan2000
 int PrevMasterSourcePos;	// previous master position - RH 09feb2000
-boolean ClearMasterSourceLine;  // master clear flag - Ty 07jan2000
+bool ClearMasterSourceLine;  // master clear flag - Ty 07jan2000
 
 // PRIVATE DATA DEFINITIONS ------------------------------------------------
 
 static char Chr;
-static char *FileStart;
-static char *FilePtr;
-static char *FileEnd;
-static boolean SourceOpen;
+static vector<char> File;
+static bool SourceOpen;
 static char ASCIIToChrCode[256];
 static byte ASCIIToHexDigit[256];
-static char TokenStringBuffer[MAX_QUOTED_LENGTH];
+static string TokenStringBuffer;
 static nestInfo_t OpenFiles[MAX_NESTED_SOURCES];
-static boolean AlreadyGot;
+static bool AlreadyGot;
 static int NestDepth;
-static boolean IncLineNumber;
-static char *FileNames;
-static size_t FileNamesLen, FileNamesMax;
+static bool IncLineNumber;
+static vector<string> FileNames;
+static size_t FileNamesLen;
 
 // Pascal 12/11/08
 // Include paths. Lowest is searched first.
 // Include path 0 is always set to the directory of the file being parsed.
-static char IncludePaths[MAX_INCLUDE_PATHS][MAX_FILE_NAME_LENGTH];
+static vector<string> IncludePaths;
 static int NumIncludePaths;
 
-static struct keyword_s
+struct keyword_s
 {
 	char *name;
 	tokenType_t token;
-} Keywords[] =
+};
+
+keyword_s Keywords[] =
 {
 	{ "break", TK_BREAK },
 	{ "case", TK_CASE },
@@ -196,9 +196,17 @@ static struct keyword_s
 	{ "static", TK_STATIC },
 	{ "strparam", TK_STRPARAM_EVAL }, // [FDARI]
 	{ "strcpy", TK_STRCPY }, // [FDARI]
+	// [JRT] Start new tokens
+	{ "tid", TK_TID },
+	{ "fixed", TK_FIXED },
+	{ "actor", TK_ACTOR },
+	{ "sound", TK_SOUND },
+	{ "overrides", TK_OVERRIDES },
+	{ "image", TK_IMAGE },
+	{ "const", TK_CONST}
 };
 
-#define NUM_KEYWORDS (sizeof(Keywords)/sizeof(Keywords[0]))
+#define NUM_KEYWORDS (sizeof(Keywords)/sizeof(keyword_s))
 
 // CODE --------------------------------------------------------------------
 
@@ -207,15 +215,14 @@ static struct keyword_s
 // TK_Init
 //
 //==========================================================================
-
-void TK_Init(void)
+void TK_Init()
 {
 	int i;
-
+	
 	for(i = 0; i < 256; i++)
 	{
 		ASCIIToChrCode[i] = CHR_SPECIAL;
-		ASCIIToHexDigit[i] = NON_HEX_DIGIT;
+		ASCIIToHexDigit[i] = (byte)NON_HEX_DIGIT;
 	}
 	for(i = '0'; i <= '9'; i++)
 	{
@@ -242,17 +249,18 @@ void TK_Init(void)
 	ASCIIToChrCode[ASCII_UNDERSCORE] = CHR_LETTER;
 	ASCIIToChrCode[EOF_CHARACTER] = CHR_EOF;
 	tk_String = TokenStringBuffer;
-	IncLineNumber = FALSE;
+	IncLineNumber = false;
 	tk_IncludedLines = 0;
+	IncludePaths = vector<string>(MAX_INCLUDE_PATHS);
 	NumIncludePaths = 1;	// the first path is always the parsed file path - Pascal 12/11/08
-	SourceOpen = FALSE;
-	*MasterSourceLine = '\0'; // master line - Ty 07jan2000
+	SourceOpen = false;
+	MasterSourceLine = ""; // master line - Ty 07jan2000
 	MasterSourcePos = 0;      // master position - Ty 07jan2000
-	ClearMasterSourceLine = TRUE; // clear the line to start
-	qsort (Keywords, NUM_KEYWORDS, sizeof(Keywords[0]), SortKeywords);
-	FileNames = MS_Alloc(4096, ERR_OUT_OF_MEMORY);
+	ClearMasterSourceLine = true; // clear the line to start
+	qsort (Keywords, NUM_KEYWORDS, sizeof(keyword_s), SortKeywords);
+	FileNames = vector<string>(MAX_INCLUDE_PATHS);
 	FileNamesLen = 0;
-	FileNamesMax = 4096;
+	File = vector<char>(DEFAULT_OBJECT_SIZE);
 }
 
 //==========================================================================
@@ -260,7 +268,6 @@ void TK_Init(void)
 // SortKeywords
 //
 //==========================================================================
-
 static int SortKeywords(const void *a, const void *b)
 {
 	return strcmp (((struct keyword_s *)a)->name,
@@ -272,21 +279,16 @@ static int SortKeywords(const void *a, const void *b)
 // TK_OpenSource
 //
 //==========================================================================
-
-void TK_OpenSource(char *fileName)
+void TK_OpenSource(string fileName)
 {
-	int size;
-
 	TK_CloseSource();
-	size = MS_LoadFile(fileName, &FileStart);
+	File = MS_LoadFile(fileName);
 	tk_SourceName = AddFileName(fileName);
 	SetLocalIncludePath(fileName);
-	SourceOpen = TRUE;
-	FileEnd = FileStart+size;
-	FilePtr = FileStart;
+	SourceOpen = true;
 	tk_Line = 1;
 	tk_Token = TK_NONE;
-	AlreadyGot = FALSE;
+	AlreadyGot = false;
 	NestDepth = 0;
 	NextChr();
 }
@@ -296,21 +298,10 @@ void TK_OpenSource(char *fileName)
 // AddFileName
 //
 //==========================================================================
-
-static char *AddFileName(const char *name)
+static int AddFileName(string name)
 {
-	size_t len = strlen(name) + 1;
-	char *namespot;
-
-	if (FileNamesLen + len > FileNamesMax)
-	{
-		FileNames = MS_Alloc(FileNamesMax, ERR_OUT_OF_MEMORY);
-		FileNamesLen = 0;
-	}
-	namespot = FileNames + FileNamesLen;
-	memcpy(namespot, name, len);
-	FileNamesLen += len;
-	return namespot;
+	FileNames.add(name);
+	return FileNames.lastIndex();
 }
 
 //==========================================================================
@@ -321,16 +312,15 @@ static char *AddFileName(const char *name)
 // Pascal 12/11/08
 //
 //==========================================================================
-
-void TK_AddIncludePath(char *sourcePath)
+void TK_AddIncludePath(string sourcePath)
 {
 	if(NumIncludePaths < MAX_INCLUDE_PATHS)
 	{
 		// Add to list
-		strcpy(IncludePaths[NumIncludePaths], sourcePath);
-		
+		IncludePaths.add(sourcePath);
+
 		// Not ending with directory delimiter?
-		if(!MS_IsDirectoryDelimiter(*(IncludePaths[NumIncludePaths] + strlen(IncludePaths[NumIncludePaths]) - 1)))
+		if (!MS_IsDirectoryDelimiter(IncludePaths.lastAdded.data()[0]))
 		{
 			// Add a directory delimiter to the include path
 			strcat(IncludePaths[NumIncludePaths], "/");
@@ -395,7 +385,7 @@ void TK_AddProgramIncludePath(char *progname)
 static void SetLocalIncludePath(char *sourceName)
 {
 	strcpy(IncludePaths[0], sourceName);
-	if(MS_StripFilename(IncludePaths[0]) == NO)
+	if(MS_StripFilename(IncludePaths[0]) == false)
 	{
 		IncludePaths[0][0] = 0;
 	}
@@ -413,12 +403,12 @@ void TK_Include(char *fileName)
 	char sourceName[MAX_FILE_NAME_LENGTH];
 	int size, i;
 	nestInfo_t *info;
-	boolean foundfile = FALSE;
+	bool foundfile = false;
 	
 	MS_Message(MSG_DEBUG, "*Including %s\n", fileName);
 	if(NestDepth == MAX_NESTED_SOURCES)
 	{
-		ERR_Exit(ERR_INCL_NESTING_TOO_DEEP, YES, fileName);
+		ERR_Exit(ERR_INCL_NESTING_TOO_DEEP, true, fileName);
 	}
 	info = &OpenFiles[NestDepth++];
 	info->name = tk_SourceName;
@@ -428,7 +418,7 @@ void TK_Include(char *fileName)
 	info->line = tk_Line;
 	info->incLineNumber = IncLineNumber;
 	info->lastChar = Chr;
-	info->imported = NO;
+	info->imported = false;
 	
 	// Pascal 30/11/08
 	// Handle absolute paths
@@ -464,7 +454,7 @@ void TK_Include(char *fileName)
 			strcat(sourceName, fileName);
 			if(MS_FileExists(sourceName))
 			{
-				foundfile = TRUE;
+				foundfile = true;
 				break;
 			}
 		}
@@ -473,7 +463,7 @@ void TK_Include(char *fileName)
 	if(!foundfile)
 	{
 		ERR_ErrorAt(tk_SourceName, tk_Line);
-		ERR_Exit(ERR_CANT_FIND_INCLUDE, YES, fileName, tk_SourceName, tk_Line);
+		ERR_Exit(ERR_CANT_FIND_INCLUDE, true, fileName, tk_SourceName, tk_Line);
 	}
 
 	MS_Message(MSG_DEBUG, "*Include file found at %s\n", sourceName);
@@ -486,10 +476,10 @@ void TK_Include(char *fileName)
 	FileEnd = FileStart+size;
 	FilePtr = FileStart;
 	tk_Line = 1;
-	IncLineNumber = FALSE;
+	IncLineNumber = false;
 	tk_Token = TK_NONE;
-	AlreadyGot = FALSE;
-	BumpMasterSourceLine('x',TRUE); // dummy x
+	AlreadyGot = false;
+	BumpMasterSourceLine('x',true); // dummy x
 	NextChr();
 }
 
@@ -502,7 +492,7 @@ void TK_Include(char *fileName)
 void TK_Import(char *fileName, enum ImportModes prevMode)
 {
 	TK_Include (fileName);
-	OpenFiles[NestDepth - 1].imported = YES;
+	OpenFiles[NestDepth - 1].imported = true;
 	OpenFiles[NestDepth - 1].prevMode = prevMode;
 	ImportMode = IMPORT_Importing;
 }
@@ -530,7 +520,7 @@ static int PopNestedSource(enum ImportModes *prevMode)
 	IncLineNumber = info->incLineNumber;
 	Chr = info->lastChar;
 	tk_Token = TK_NONE;
-	AlreadyGot = FALSE;
+	AlreadyGot = false;
 	
 	// Pascal 12/11/08
 	// Set the first include path back to this file directory
@@ -546,7 +536,7 @@ static int PopNestedSource(enum ImportModes *prevMode)
 //
 //==========================================================================
 
-void TK_CloseSource(void)
+void TK_CloseSource()
 {
 	int i;
 
@@ -557,7 +547,7 @@ void TK_CloseSource(void)
 		{
 			free(OpenFiles[i].start);
 		}
-		SourceOpen = FALSE;
+		SourceOpen = false;
 	}
 }
 
@@ -567,7 +557,7 @@ void TK_CloseSource(void)
 //
 //==========================================================================
 
-int TK_GetDepth(void)
+int TK_GetDepth()
 {
 	return NestDepth;
 }
@@ -578,20 +568,20 @@ int TK_GetDepth(void)
 //
 //==========================================================================
 
-tokenType_t TK_NextToken(void)
+tokenType_t TK_NextToken()
 {
 	enum ImportModes prevMode;
-	boolean validToken;
+	bool validToken;
 
-	if(AlreadyGot == TRUE)
+	if(AlreadyGot == true)
 	{
 		int t = MasterSourcePos;
 		MasterSourcePos = PrevMasterSourcePos;
 		PrevMasterSourcePos = t;
-		AlreadyGot = FALSE;
+		AlreadyGot = false;
 		return tk_Token;
 	}
-	validToken = NO;
+	validToken = false;
 	PrevMasterSourcePos = MasterSourcePos;
 	do
 	{
@@ -632,16 +622,16 @@ tokenType_t TK_NextToken(void)
 				ImportMode = prevMode;
 				if(!ExporterFlagged)
 				{
-					ERR_Exit(ERR_EXPORTER_NOT_FLAGGED, NO);
+					ERR_Exit(ERR_EXPORTER_NOT_FLAGGED, false);
 				}
 				SY_ClearShared();
 			}
 		}
 		else
 		{
-			validToken = YES;
+			validToken = true;
 		}
-	} while(validToken == NO);
+	} while(validToken == false);
 	return tk_Token;
 }
 
@@ -651,7 +641,7 @@ tokenType_t TK_NextToken(void)
 //
 //==========================================================================
 
-int TK_NextCharacter(void)
+int TK_NextCharacter()
 {
 	int c;
 
@@ -674,7 +664,7 @@ int TK_NextCharacter(void)
 //
 //==========================================================================
 
-void TK_SkipPast(tokenType_t token)
+void TK_SkipPast(int token)
 {
 	while (tk_Token != token && tk_Token != TK_EOF)
 	{
@@ -689,7 +679,7 @@ void TK_SkipPast(tokenType_t token)
 //
 //==========================================================================
 
-void TK_SkipTo(tokenType_t token)
+void TK_SkipTo(int token)
 {
 	while (tk_Token != token && tk_Token != TK_EOF)
 	{
@@ -703,11 +693,11 @@ void TK_SkipTo(tokenType_t token)
 //
 //==========================================================================
 
-boolean TK_NextTokenMustBe(tokenType_t token, error_t error)
+bool TK_NextTokenMustBe(int token, int error)
 {
 	if(TK_NextToken() != token)
 	{
-		ERR_Error(error, YES);
+		ERR_Error(error, true);
 		/*
 		if(skipToken == TK_EOF)
 		{
@@ -717,11 +707,11 @@ boolean TK_NextTokenMustBe(tokenType_t token, error_t error)
 		{
 			TK_SkipPast(skipToken);
 		}
-		return NO;
+		return false;
 		*/
 		ERR_Finish();
 	}
-	return YES;
+	return true;
 }
 
 //==========================================================================
@@ -730,7 +720,7 @@ boolean TK_NextTokenMustBe(tokenType_t token, error_t error)
 //
 //==========================================================================
 
-boolean TK_TokenMustBe(tokenType_t token, error_t error)
+bool TK_TokenMustBe(int token, int error)
 {
 	if (token == TK_SEMICOLON && forSemicolonHack)
 	{
@@ -738,7 +728,7 @@ boolean TK_TokenMustBe(tokenType_t token, error_t error)
 	}
 	if(tk_Token != token)
 	{
-		ERR_Error(error, YES);
+		ERR_Error(error, true);
 		/*
 		if(skipToken == TK_EOF)
 		{
@@ -751,11 +741,11 @@ boolean TK_TokenMustBe(tokenType_t token, error_t error)
 				TK_NextToken();
 			}
 		}
-		return NO;
+		return false;
 		*/
 		ERR_Finish();
 	}
-	return YES;
+	return true;
 }
 
 //==========================================================================
@@ -764,7 +754,7 @@ boolean TK_TokenMustBe(tokenType_t token, error_t error)
 //
 //==========================================================================
 
-boolean TK_Member(tokenType_t *list)
+bool TK_Member(tokenType_t *list)
 {
 	int i;
 
@@ -772,10 +762,10 @@ boolean TK_Member(tokenType_t *list)
 	{
 		if(tk_Token == list[i])
 		{
-			return YES;
+			return true;
 		}
 	}
-	return NO;
+	return false;
 }
 
 //==========================================================================
@@ -784,16 +774,16 @@ boolean TK_Member(tokenType_t *list)
 //
 //==========================================================================
 
-void TK_Undo(void)
+void TK_Undo()
 {
 	if(tk_Token != TK_NONE)
 	{
-		if (AlreadyGot == FALSE)
+		if (AlreadyGot == false)
 		{
 			int t = MasterSourcePos;
 			MasterSourcePos = PrevMasterSourcePos;
 			PrevMasterSourcePos = t;
-			AlreadyGot = TRUE;
+			AlreadyGot = true;
 		}
 	}
 }
@@ -804,7 +794,7 @@ void TK_Undo(void)
 //
 //==========================================================================
 
-static void ProcessLetterToken(void)
+static void ProcessLetterToken()
 {
 	int i;
 	char *text;
@@ -816,7 +806,7 @@ static void ProcessLetterToken(void)
 	{
 		if(++i == MAX_IDENTIFIER_LENGTH)
 		{
-			ERR_Error(ERR_IDENTIFIER_TOO_LONG, YES);
+			ERR_Error(ERR_IDENTIFIER_TOO_LONG, true);
 		}
 		if(i < MAX_IDENTIFIER_LENGTH)
 		{
@@ -826,9 +816,9 @@ static void ProcessLetterToken(void)
 	}
 	*text = 0;
 	MS_StrLwr(TokenStringBuffer);
-	if(CheckForKeyword() == FALSE
-		&& CheckForLineSpecial() == FALSE
-		&& CheckForConstant() == FALSE)
+	if(CheckForKeyword() == false
+		&& CheckForLineSpecial() == false
+		&& CheckForConstant() == false)
 	{
 		tk_Token = TK_IDENTIFIER;
 	}
@@ -840,7 +830,7 @@ static void ProcessLetterToken(void)
 //
 //==========================================================================
 
-static boolean CheckForKeyword(void)
+static bool CheckForKeyword()
 {
 	int min, max, probe, lexx;
 
@@ -851,11 +841,11 @@ static boolean CheckForKeyword(void)
 
 	while (max - min >= 0)
 	{
-		lexx = strcmp(tk_String, Keywords[probe].name);
+		lexx = tk_String.compare(Keywords[probe].name);
 		if(lexx == 0)
 		{
 			tk_Token = Keywords[probe].token;
-			return TRUE;
+			return true;
 		}
 		else if(lexx < 0)
 		{
@@ -867,7 +857,8 @@ static boolean CheckForKeyword(void)
 		}
 		probe = (max-min)/2+min;
 	}
-	return FALSE;
+
+	return false;
 }
 
 //==========================================================================
@@ -876,23 +867,23 @@ static boolean CheckForKeyword(void)
 //
 //==========================================================================
 
-static boolean CheckForLineSpecial(void)
+static bool CheckForLineSpecial()
 {
 	symbolNode_t *sym;
 
 	sym = SY_FindGlobal(tk_String);
 	if(sym == NULL)
 	{
-		return FALSE;
+		return false;
 	}
 	if(sym->type != SY_SPECIAL)
 	{
-		return FALSE;
+		return false;
 	}
 	tk_Token = TK_LINESPECIAL;
 	tk_SpecialValue = sym->info.special.value;
 	tk_SpecialArgCount = sym->info.special.argCount;
-	return TRUE;
+	return true;
 }
 
 //==========================================================================
@@ -901,22 +892,22 @@ static boolean CheckForLineSpecial(void)
 //
 //==========================================================================
 
-static boolean CheckForConstant(void)
+static bool CheckForConstant()
 {
 	symbolNode_t *sym;
 
 	sym = SY_FindGlobal(tk_String);
 	if(sym == NULL)
 	{
-		return FALSE;
+		return false;
 	}
 	if(sym->type != SY_CONSTANT)
 	{
-		return FALSE;
+		return false;
 	}
 	tk_Token = TK_NUMBER;
 	tk_Number = sym->info.constant.value;
-	return TRUE;
+	return true;
 }
 
 //==========================================================================
@@ -925,7 +916,7 @@ static boolean CheckForConstant(void)
 //
 //==========================================================================
 
-static void ProcessNumberToken(void)
+static void ProcessNumberToken()
 {
 	char c;
 
@@ -987,7 +978,7 @@ static void EvalFixedConstant(int whole)
 //
 //==========================================================================
 
-static void EvalHexConstant(void)
+static void EvalHexConstant()
 {
 	tk_Number = 0;
 	while(ASCIIToHexDigit[(byte)Chr] != NON_HEX_DIGIT)
@@ -1004,7 +995,7 @@ static void EvalHexConstant(void)
 //
 //==========================================================================
 
-static void EvalRadixConstant(void)
+static void EvalRadixConstant()
 {
 	int radix;
 	int digitVal;
@@ -1012,7 +1003,7 @@ static void EvalRadixConstant(void)
 	radix = tk_Number;
 	if(radix < 2 || radix > 36)
 	{
-		ERR_Error(ERR_BAD_RADIX_CONSTANT, YES, NULL);
+		ERR_Error(ERR_BAD_RADIX_CONSTANT, true, NULL);
 		radix = 36;
 	}
 	tk_Number = 0;
@@ -1060,14 +1051,14 @@ static int DigitValue(char digit, int radix)
 //
 //==========================================================================
 
-static void ProcessQuoteToken(void)
+static void ProcessQuoteToken()
 {
 	int i;
 	char *text;
-	boolean escaped;
+	bool escaped;
 
 	i = 0;
-	escaped = FALSE;
+	escaped = false;
 	text = TokenStringBuffer;
 	NextChr();
 	while(Chr != EOF_CHARACTER)
@@ -1078,7 +1069,7 @@ static void ProcessQuoteToken(void)
 		}
 		if(++i == MAX_QUOTED_LENGTH)
 		{
-			ERR_Error(ERR_STRING_TOO_LONG, YES, NULL);
+			ERR_Error(ERR_STRING_TOO_LONG, true, NULL);
 		}
 		if(i < MAX_QUOTED_LENGTH)
 		{
@@ -1088,7 +1079,7 @@ static void ProcessQuoteToken(void)
 		if(Chr == '\\')
 			escaped ^= (Chr == '\\');
 		else
-			escaped = FALSE;
+			escaped = false;
 		NextChr();
 	}
 	*text = 0;
@@ -1105,7 +1096,7 @@ static void ProcessQuoteToken(void)
 //
 //==========================================================================
 
-static void ProcessSpecialToken(void)
+static void ProcessSpecialToken()
 {
 	char c;
 
@@ -1138,6 +1129,10 @@ static void ProcessSpecialToken(void)
 					break;
 				case '-':
 					tk_Token = TK_DEC;
+					NextChr();
+					break;
+				case '>':
+					tk_Token = TK_POINTERTO;
 					NextChr();
 					break;
 				default:
@@ -1341,6 +1336,9 @@ static void ProcessSpecialToken(void)
 		case '~':
 			tk_Token = TK_TILDE;
 			break;
+		case '?':
+			tk_Token = TK_QSTART;
+			break;
 		case '\'':
 			if(Chr == '\\')
 			{
@@ -1356,7 +1354,7 @@ static void ProcessSpecialToken(void)
 					EvalHexConstant();
 					if(Chr != '\'')
 					{
-						ERR_Exit(ERR_BAD_CHARACTER_CONSTANT, YES, NULL);
+						ERR_Exit(ERR_BAD_CHARACTER_CONSTANT, true, NULL);
 					}
 					NextChr();
 					break;
@@ -1386,13 +1384,13 @@ static void ProcessSpecialToken(void)
 					tk_Number = Chr;
 					break;
 				default:
-					ERR_Exit(ERR_BAD_CHARACTER_CONSTANT, YES, NULL);
+					ERR_Exit(ERR_BAD_CHARACTER_CONSTANT, true, NULL);
 				}
 				tk_Token = TK_NUMBER;
 			}
 			else if(Chr == '\'')
 			{
-				ERR_Exit(ERR_BAD_CHARACTER_CONSTANT, YES, NULL);
+				ERR_Exit(ERR_BAD_CHARACTER_CONSTANT, true, NULL);
 			}
 			else
 			{
@@ -1402,12 +1400,12 @@ static void ProcessSpecialToken(void)
 			NextChr();
 			if(Chr != '\'')
 			{
-				ERR_Exit(ERR_BAD_CHARACTER_CONSTANT, YES, NULL);
+				ERR_Exit(ERR_BAD_CHARACTER_CONSTANT, true, NULL);
 			}
 			NextChr();
 			break;
 		default:
-			ERR_Exit(ERR_BAD_CHARACTER, YES, NULL);
+			ERR_Exit(ERR_BAD_CHARACTER, true, NULL);
 			break;
 	}
 }
@@ -1418,29 +1416,29 @@ static void ProcessSpecialToken(void)
 //
 //==========================================================================
 
-static void NextChr(void)
+static void NextChr()
 {
 	if(FilePtr >= FileEnd)
 	{
 		Chr = EOF_CHARACTER;
 		return;
 	}
-	if(IncLineNumber == TRUE)
+	if(IncLineNumber)
 	{
 		tk_Line++;
-		IncLineNumber = FALSE;
-		BumpMasterSourceLine('x',TRUE); // dummy x
+		IncLineNumber = false;
+		BumpMasterSourceLine('x',true); // dummy x
 	}
 	Chr = *FilePtr++;
 	if(Chr < ASCII_SPACE && Chr >= 0)	// Allow high ASCII characters
 	{
 		if(Chr == '\n')
 		{
-			IncLineNumber = TRUE;
+			IncLineNumber = true;
 		}
 		Chr = ASCII_SPACE;
 	}
-	BumpMasterSourceLine(Chr,FALSE);
+	BumpMasterSourceLine(Chr,false);
 }
 
 //==========================================================================
@@ -1449,7 +1447,7 @@ static void NextChr(void)
 //
 //==========================================================================
 
-static int PeekChr(void)
+static int PeekChr()
 {
 	char ch;
 	if(FilePtr >= FileEnd)
@@ -1488,18 +1486,17 @@ static int OctalChar()
 //
 //==========================================================================
 
-void SkipComment(void)
+void SkipComment()
 {
-	boolean first;
+	bool hasPiece = false;
 
-	first = FALSE;
 	while(Chr != EOF_CHARACTER)
 	{
-		if(first == TRUE && Chr == '/')
+		if (hasPiece && Chr == '/')
 		{
 			break;
 		}
-		first = (Chr == '*');
+		hasPiece = (Chr == '*');
 		NextChr();
 	}
 	NextChr();
@@ -1511,18 +1508,9 @@ void SkipComment(void)
 //
 //==========================================================================
 
-void SkipCPPComment(void)
+void SkipCPPComment()
 {
-	while(FilePtr < FileEnd)
-	{
-		if(*FilePtr++ == '\n')
-		{
-			tk_Line++;
-			BumpMasterSourceLine('x',TRUE); // dummy x
-			break;
-		}
-	}
-	NextChr();
+	TK_SkipLine();
 }
 
 //==========================================================================
@@ -1531,17 +1519,17 @@ void SkipCPPComment(void)
 //
 //==========================================================================
 
-void BumpMasterSourceLine(char Chr, boolean clear) // master line - Ty 07jan2000
+void BumpMasterSourceLine(char Chr, bool clear) // master line - Ty 07jan2000
 {
 	if (ClearMasterSourceLine)  // set to clear last time, clear now for first character
 	{
 		*MasterSourceLine = '\0';
 		MasterSourcePos = 0;
-		ClearMasterSourceLine = FALSE;
+		ClearMasterSourceLine = false;
 	}
 	if (clear)
 	{
-		ClearMasterSourceLine = TRUE;
+		ClearMasterSourceLine = true;
 	}
 	else
 	{
@@ -1556,7 +1544,7 @@ void BumpMasterSourceLine(char Chr, boolean clear) // master line - Ty 07jan2000
 //
 //==========================================================================
 
-void TK_SkipLine(void)
+void TK_SkipLine()
 {
 	char *sourcenow = tk_SourceName;
 	int linenow = tk_Line;

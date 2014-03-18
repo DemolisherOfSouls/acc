@@ -26,8 +26,8 @@ typedef struct
 	int argCount;
 	int optMask;
 	int outMask;
-	boolean hasReturnValue;
-	boolean latent;
+	bool hasReturnValue;
+	bool latent;
 } internFuncDef_t;
 
 // EXTERNAL FUNCTION PROTOTYPES --------------------------------------------
@@ -55,150 +55,150 @@ static symbolNode_t *GlobalRoot;
 
 static internFuncDef_t InternalFunctions[] =
 {
-	{ "tagwait", PCD_TAGWAITDIRECT, PCD_TAGWAIT, 1, 0, 0, NO, YES },
-	{ "polywait", PCD_POLYWAITDIRECT, PCD_POLYWAIT, 1, 0, 0, NO, YES },
-	{ "scriptwait", PCD_SCRIPTWAITDIRECT, PCD_SCRIPTWAIT, 1, 0, 0, NO, YES },
-	{ "namedscriptwait", PCD_NOP, PCD_SCRIPTWAITNAMED, 1, 0, 0, NO, YES },
-	{ "delay", PCD_DELAYDIRECT, PCD_DELAY, 1, 0, 0, NO, YES },
-	{ "random", PCD_RANDOMDIRECT, PCD_RANDOM, 2, 0, 0, YES, NO },
-	{ "thingcount", PCD_THINGCOUNTDIRECT, PCD_THINGCOUNT, 2, 0, 0, YES, NO },
-	{ "thingcountname", PCD_NOP, PCD_THINGCOUNTNAME, 2, 0, 0, YES, NO },
-	{ "changefloor", PCD_CHANGEFLOORDIRECT, PCD_CHANGEFLOOR, 2, 0, 0, NO, NO },
-	{ "changeceiling", PCD_CHANGECEILINGDIRECT, PCD_CHANGECEILING, 2, 0, 0, NO, NO },
-	{ "lineside", PCD_NOP, PCD_LINESIDE, 0, 0, 0, YES, NO },
-	{ "clearlinespecial", PCD_NOP, PCD_CLEARLINESPECIAL, 0, 0, 0, NO, NO },
-	{ "playercount", PCD_NOP, PCD_PLAYERCOUNT, 0, 0, 0, YES, NO },
-	{ "gametype", PCD_NOP, PCD_GAMETYPE, 0, 0, 0, YES, NO },
-	{ "gameskill", PCD_NOP, PCD_GAMESKILL, 0, 0, 0, YES, NO },
-	{ "timer", PCD_NOP, PCD_TIMER, 0, 0, 0, YES, NO },
-	{ "sectorsound", PCD_NOP, PCD_SECTORSOUND, 2, 0, 0, NO, NO },
-	{ "ambientsound", PCD_NOP, PCD_AMBIENTSOUND, 2, 0, 0, NO, NO },
-	{ "soundsequence", PCD_NOP, PCD_SOUNDSEQUENCE, 1, 0, 0, NO, NO },
-	{ "setlinetexture", PCD_NOP, PCD_SETLINETEXTURE, 4, 0, 0, NO, NO },
-	{ "setlineblocking", PCD_NOP, PCD_SETLINEBLOCKING, 2, 0, 0, NO, NO },
-	{ "setlinespecial", PCD_NOP, PCD_SETLINESPECIAL, 7, 4|8|16|32|64, 0, NO, NO },
-	{ "thingsound", PCD_NOP, PCD_THINGSOUND, 3, 0, 0, NO, NO },
-	{ "activatorsound", PCD_NOP, PCD_ACTIVATORSOUND, 2, 0, 0, NO, NO },
-	{ "localambientsound", PCD_NOP, PCD_LOCALAMBIENTSOUND, 2, 0, 0, NO, NO },
-	{ "setlinemonsterblocking", PCD_NOP, PCD_SETLINEMONSTERBLOCKING, 2, 0, 0, NO, NO },
-	{ "fixedmul", PCD_NOP, PCD_FIXEDMUL, 2, 0, 0, YES, NO },
-	{ "fixeddiv", PCD_NOP, PCD_FIXEDDIV, 2, 0, 0, YES, NO },
+	{ "tagwait", PCD_TAGWAITDIRECT, PCD_TAGWAIT, 1, 0, 0, false, true },
+	{ "polywait", PCD_POLYWAITDIRECT, PCD_POLYWAIT, 1, 0, 0, false, true },
+	{ "scriptwait", PCD_SCRIPTWAITDIRECT, PCD_SCRIPTWAIT, 1, 0, 0, false, true },
+	{ "namedscriptwait", PCD_NOP, PCD_SCRIPTWAITNAMED, 1, 0, 0, false, true },
+	{ "delay", PCD_DELAYDIRECT, PCD_DELAY, 1, 0, 0, false, true },
+	{ "random", PCD_RANDOMDIRECT, PCD_RANDOM, 2, 0, 0, true, false },
+	{ "thingcount", PCD_THINGCOUNTDIRECT, PCD_THINGCOUNT, 2, 0, 0, true, false },
+	{ "thingcountname", PCD_NOP, PCD_THINGCOUNTNAME, 2, 0, 0, true, false },
+	{ "changefloor", PCD_CHANGEFLOORDIRECT, PCD_CHANGEFLOOR, 2, 0, 0, false, false },
+	{ "changeceiling", PCD_CHANGECEILINGDIRECT, PCD_CHANGECEILING, 2, 0, 0, false, false },
+	{ "lineside", PCD_NOP, PCD_LINESIDE, 0, 0, 0, true, false },
+	{ "clearlinespecial", PCD_NOP, PCD_CLEARLINESPECIAL, 0, 0, 0, false, false },
+	{ "playercount", PCD_NOP, PCD_PLAYERCOUNT, 0, 0, 0, true, false },
+	{ "gametype", PCD_NOP, PCD_GAMETYPE, 0, 0, 0, true, false },
+	{ "gameskill", PCD_NOP, PCD_GAMESKILL, 0, 0, 0, true, false },
+	{ "timer", PCD_NOP, PCD_TIMER, 0, 0, 0, true, false },
+	{ "sectorsound", PCD_NOP, PCD_SECTORSOUND, 2, 0, 0, false, false },
+	{ "ambientsound", PCD_NOP, PCD_AMBIENTSOUND, 2, 0, 0, false, false },
+	{ "soundsequence", PCD_NOP, PCD_SOUNDSEQUENCE, 1, 0, 0, false, false },
+	{ "setlinetexture", PCD_NOP, PCD_SETLINETEXTURE, 4, 0, 0, false, false },
+	{ "setlineblocking", PCD_NOP, PCD_SETLINEBLOCKING, 2, 0, 0, false, false },
+	{ "setlinespecial", PCD_NOP, PCD_SETLINESPECIAL, 7, 4|8|16|32|64, 0, false, false },
+	{ "thingsound", PCD_NOP, PCD_THINGSOUND, 3, 0, 0, false, false },
+	{ "activatorsound", PCD_NOP, PCD_ACTIVATORSOUND, 2, 0, 0, false, false },
+	{ "localambientsound", PCD_NOP, PCD_LOCALAMBIENTSOUND, 2, 0, 0, false, false },
+	{ "setlinemonsterblocking", PCD_NOP, PCD_SETLINEMONSTERBLOCKING, 2, 0, 0, false, false },
+	{ "fixedmul", PCD_NOP, PCD_FIXEDMUL, 2, 0, 0, true, false },
+	{ "fixeddiv", PCD_NOP, PCD_FIXEDDIV, 2, 0, 0, true, false },
 // [BC] Start of new pcodes
-	{ "playerblueskull", PCD_NOP, PCD_PLAYERBLUESKULL, 0, 0, 0, YES, NO },
-	{ "playerredskull", PCD_NOP, PCD_PLAYERREDSKULL, 0, 0, 0, YES, NO },
-	{ "playeryellowskull", PCD_NOP, PCD_PLAYERYELLOWSKULL, 0, 0, 0, YES, NO },
-	{ "playerbluecard", PCD_NOP, PCD_PLAYERBLUECARD, 0, 0, 0, YES, NO },
-	{ "playerredcard", PCD_NOP, PCD_PLAYERREDCARD, 0, 0, 0, YES, NO },
-	{ "playeryellowcard", PCD_NOP, PCD_PLAYERYELLOWCARD, 0, 0, 0, YES, NO },
-	{ "playeronteam", PCD_NOP, PCD_PLAYERONTEAM, 0, 0, 0, YES, NO },
-	{ "playerteam", PCD_NOP, PCD_PLAYERTEAM, 0, 0, 0, YES, NO },
-	{ "playerfrags", PCD_NOP, PCD_PLAYERFRAGS, 0, 0, 0, YES, NO },
-	{ "playerhealth", PCD_NOP, PCD_PLAYERHEALTH, 0, 0, 0, YES, NO },
-	{ "playerarmorpoints", PCD_NOP, PCD_PLAYERARMORPOINTS, 0, 0, 0, YES, NO },
-	{ "playerexpert", PCD_NOP, PCD_PLAYEREXPERT, 0, 0, 0, YES, NO },
-	{ "bluecount", PCD_NOP, PCD_BLUETEAMCOUNT, 0, 0, 0, YES, NO },
-	{ "redcount", PCD_NOP, PCD_REDTEAMCOUNT, 0, 0, 0, YES, NO },
-	{ "bluescore", PCD_NOP, PCD_BLUETEAMSCORE, 0, 0, 0, YES, NO },
-	{ "redscore", PCD_NOP, PCD_REDTEAMSCORE, 0, 0, 0, YES, NO },
-	{ "isoneflagctf", PCD_NOP, PCD_ISONEFLAGCTF, 0, 0, 0, YES, NO },
-	{ "getinvasionwave", PCD_NOP, PCD_GETINVASIONWAVE, 0, 0, 0, YES, NO },
-	{ "getinvasionstate", PCD_NOP, PCD_GETINVASIONSTATE, 0, 0, 0, YES, NO },
-	{ "music_change", PCD_NOP, PCD_MUSICCHANGE, 2, 0, 0, NO, NO },
-	{ "consolecommand", PCD_CONSOLECOMMANDDIRECT, PCD_CONSOLECOMMAND, 3, 2|4, 0, NO, NO },
-	{ "singleplayer", PCD_NOP, PCD_SINGLEPLAYER, 0, 0, 0, YES, NO },
+	{ "playerblueskull", PCD_NOP, PCD_PLAYERBLUESKULL, 0, 0, 0, true, false },
+	{ "playerredskull", PCD_NOP, PCD_PLAYERREDSKULL, 0, 0, 0, true, false },
+	{ "playeryellowskull", PCD_NOP, PCD_PLAYERYELLOWSKULL, 0, 0, 0, true, false },
+	{ "playerbluecard", PCD_NOP, PCD_PLAYERBLUECARD, 0, 0, 0, true, false },
+	{ "playerredcard", PCD_NOP, PCD_PLAYERREDCARD, 0, 0, 0, true, false },
+	{ "playeryellowcard", PCD_NOP, PCD_PLAYERYELLOWCARD, 0, 0, 0, true, false },
+	{ "playeronteam", PCD_NOP, PCD_PLAYERONTEAM, 0, 0, 0, true, false },
+	{ "playerteam", PCD_NOP, PCD_PLAYERTEAM, 0, 0, 0, true, false },
+	{ "playerfrags", PCD_NOP, PCD_PLAYERFRAGS, 0, 0, 0, true, false },
+	{ "playerhealth", PCD_NOP, PCD_PLAYERHEALTH, 0, 0, 0, true, false },
+	{ "playerarmorpoints", PCD_NOP, PCD_PLAYERARMORPOINTS, 0, 0, 0, true, false },
+	{ "playerexpert", PCD_NOP, PCD_PLAYEREXPERT, 0, 0, 0, true, false },
+	{ "bluecount", PCD_NOP, PCD_BLUETEAMCOUNT, 0, 0, 0, true, false },
+	{ "redcount", PCD_NOP, PCD_REDTEAMCOUNT, 0, 0, 0, true, false },
+	{ "bluescore", PCD_NOP, PCD_BLUETEAMSCORE, 0, 0, 0, true, false },
+	{ "redscore", PCD_NOP, PCD_REDTEAMSCORE, 0, 0, 0, true, false },
+	{ "isoneflagctf", PCD_NOP, PCD_ISONEFLAGCTF, 0, 0, 0, true, false },
+	{ "getinvasionwave", PCD_NOP, PCD_GETINVASIONWAVE, 0, 0, 0, true, false },
+	{ "getinvasionstate", PCD_NOP, PCD_GETINVASIONSTATE, 0, 0, 0, true, false },
+	{ "music_change", PCD_NOP, PCD_MUSICCHANGE, 2, 0, 0, false, false },
+	{ "consolecommand", PCD_CONSOLECOMMANDDIRECT, PCD_CONSOLECOMMAND, 3, 2|4, 0, false, false },
+	{ "singleplayer", PCD_NOP, PCD_SINGLEPLAYER, 0, 0, 0, true, false },
 // [RH] end of Skull Tag functions
-	{ "setgravity", PCD_SETGRAVITYDIRECT, PCD_SETGRAVITY, 1, 0, 0, NO, NO },
-	{ "setaircontrol", PCD_SETAIRCONTROLDIRECT, PCD_SETAIRCONTROL, 1, 0, 0, NO, NO },
-	{ "clearinventory", PCD_NOP, PCD_CLEARINVENTORY, 0, 0, 0, NO, NO },
-	{ "giveinventory", PCD_GIVEINVENTORYDIRECT, PCD_GIVEINVENTORY, 2, 0, 0, NO, NO },
-	{ "takeinventory", PCD_TAKEINVENTORYDIRECT, PCD_TAKEINVENTORY, 2, 0, 0, NO, NO },
-	{ "checkinventory", PCD_CHECKINVENTORYDIRECT, PCD_CHECKINVENTORY, 1, 0, 0, YES, NO },
-	{ "clearactorinventory", PCD_NOP, PCD_CLEARACTORINVENTORY, 1, 0, 0, NO, NO },
-	{ "giveactorinventory", PCD_NOP, PCD_GIVEACTORINVENTORY, 3, 0, 0, NO, NO },
-	{ "takeactorinventory", PCD_NOP, PCD_TAKEACTORINVENTORY, 3, 0, 0, NO, NO },
-	{ "checkactorinventory", PCD_NOP, PCD_CHECKACTORINVENTORY, 2, 0, 0, YES, NO },
-	{ "spawn", PCD_SPAWNDIRECT, PCD_SPAWN, 6, 16|32, 0, YES, NO },
-	{ "spawnspot", PCD_SPAWNSPOTDIRECT, PCD_SPAWNSPOT, 4, 4|8, 0, YES, NO },
-	{ "spawnspotfacing", PCD_NOP, PCD_SPAWNSPOTFACING, 3, 4, 0, YES, NO },
-	{ "setmusic", PCD_SETMUSICDIRECT, PCD_SETMUSIC, 3, 2|4, 0, NO, NO },
-	{ "localsetmusic", PCD_LOCALSETMUSICDIRECT, PCD_LOCALSETMUSIC, 3, 2|4, 0, NO, NO },
-	{ "setstyle", PCD_SETSTYLEDIRECT, PCD_SETSTYLE, 1, 0, 0, NO, NO },
-	{ "setfont", PCD_SETFONTDIRECT, PCD_SETFONT, 1, 0, 0, NO, NO },
-	{ "setthingspecial", PCD_NOP, PCD_SETTHINGSPECIAL, 7, 4|8|16|32|64, 0, NO, NO },
-	{ "fadeto", PCD_NOP, PCD_FADETO, 5, 0, 0, NO, NO },
-	{ "faderange", PCD_NOP, PCD_FADERANGE, 9, 0, 0, NO, NO },
-	{ "cancelfade", PCD_NOP, PCD_CANCELFADE, 0, 0, 0, NO, NO },
-	{ "playmovie", PCD_NOP, PCD_PLAYMOVIE, 1, 0, 0, YES, NO },
-	{ "setfloortrigger", PCD_NOP, PCD_SETFLOORTRIGGER, 8, 8|16|32|64|128, 0, NO, NO },
-	{ "setceilingtrigger", PCD_NOP, PCD_SETCEILINGTRIGGER, 8, 8|16|32|64|128, 0, NO, NO },
-	{ "setactorposition", PCD_NOP, PCD_SETACTORPOSITION, 5, 0, 0, YES, NO },
-	{ "getactorx", PCD_NOP, PCD_GETACTORX, 1, 0, 0, YES, NO },
-	{ "getactory", PCD_NOP, PCD_GETACTORY, 1, 0, 0, YES, NO },
-	{ "getactorz", PCD_NOP, PCD_GETACTORZ, 1, 0, 0, YES, NO },
-	{ "getactorfloorz", PCD_NOP, PCD_GETACTORFLOORZ, 1, 0, 0, YES, NO },
-	{ "getactorceilingz", PCD_NOP, PCD_GETACTORCEILINGZ, 1, 0, 0, YES, NO },
-	{ "getactorangle", PCD_NOP, PCD_GETACTORANGLE, 1, 0, 0, YES, NO },
-	{ "writetoini", PCD_NOP, PCD_WRITETOINI, 3, 0, 0, NO, NO },
-	{ "getfromini", PCD_NOP, PCD_GETFROMINI, 3, 0, 0, YES, NO },
-	{ "sin", PCD_NOP, PCD_SIN, 1, 0, 0, YES, NO },
-	{ "cos", PCD_NOP, PCD_COS, 1, 0, 0, YES, NO },
-	{ "vectorangle", PCD_NOP, PCD_VECTORANGLE, 2, 0, 0, YES, NO },
-	{ "checkweapon", PCD_NOP, PCD_CHECKWEAPON, 1, 0, 0, YES, NO },
-	{ "setweapon", PCD_NOP, PCD_SETWEAPON, 1, 0, 0, YES, NO },
-	{ "setmarineweapon", PCD_NOP, PCD_SETMARINEWEAPON, 2, 0, 0, NO, NO },
-	{ "setactorproperty", PCD_NOP, PCD_SETACTORPROPERTY, 3, 0, 0, NO, NO },
-	{ "getactorproperty", PCD_NOP, PCD_GETACTORPROPERTY, 2, 0, 0, YES, NO },
-	{ "playernumber", PCD_NOP, PCD_PLAYERNUMBER, 0, 0, 0, YES, NO },
-	{ "activatortid", PCD_NOP, PCD_ACTIVATORTID, 0, 0, 0, YES, NO },
-	{ "setmarinesprite", PCD_NOP, PCD_SETMARINESPRITE, 2, 0, 0, NO, NO },
-	{ "getscreenwidth", PCD_NOP, PCD_GETSCREENWIDTH, 0, 0, 0, YES, NO },
-	{ "getscreenheight", PCD_NOP, PCD_GETSCREENHEIGHT, 0, 0, 0, YES, NO },
-	{ "thing_projectile2", PCD_NOP, PCD_THING_PROJECTILE2, 7, 0, 0, NO, NO },
-	{ "strlen", PCD_NOP, PCD_STRLEN, 1, 0, 0, YES, NO },
-	{ "sethudsize", PCD_NOP, PCD_SETHUDSIZE, 3, 0, 0, NO, NO },
-	{ "getcvar", PCD_NOP, PCD_GETCVAR, 1, 0, 0, YES, NO },
-	{ "setresultvalue", PCD_NOP, PCD_SETRESULTVALUE, 1, 0, 0, NO, NO },
-	{ "getlinerowoffset", PCD_NOP, PCD_GETLINEROWOFFSET, 0, 0, 0, YES, NO },
-	{ "getsectorfloorz", PCD_NOP, PCD_GETSECTORFLOORZ, 3, 0, 0, YES, NO },
-	{ "getsectorceilingz", PCD_NOP, PCD_GETSECTORCEILINGZ, 3, 0, 0, YES, NO },
-	{ "getsigilpieces", PCD_NOP, PCD_GETSIGILPIECES, 0, 0, 0, YES, NO },
-	{ "getlevelinfo", PCD_NOP, PCD_GETLEVELINFO, 1, 0, 0, YES, NO },
-	{ "changesky", PCD_NOP, PCD_CHANGESKY, 2, 0, 0, NO, NO },
-	{ "playeringame", PCD_NOP, PCD_PLAYERINGAME, 1, 0, 0, YES, NO },
-	{ "playerisbot", PCD_NOP, PCD_PLAYERISBOT, 1, 0, 0, YES, NO },
-	{ "setcameratotexture", PCD_NOP, PCD_SETCAMERATOTEXTURE, 3, 0, 0, NO, NO },
-	{ "grabinput", PCD_NOP, PCD_GRABINPUT, 2, 0, 0, NO, NO },
-	{ "setmousepointer", PCD_NOP, PCD_SETMOUSEPOINTER, 3, 0, 0, NO, NO },
-	{ "movemousepointer", PCD_NOP, PCD_MOVEMOUSEPOINTER, 2, 0, 0, NO, NO },
-	{ "getammocapacity", PCD_NOP, PCD_GETAMMOCAPACITY, 1, 0, 0, YES, NO },
-	{ "setammocapacity", PCD_NOP, PCD_SETAMMOCAPACITY, 2, 0, 0, NO, NO },
-	{ "setactorangle", PCD_NOP, PCD_SETACTORANGLE, 2, 0, 0, NO, NO },
-	{ "spawnprojectile", PCD_NOP, PCD_SPAWNPROJECTILE, 7, 0, 0, NO, NO },
-	{ "getsectorlightlevel", PCD_NOP, PCD_GETSECTORLIGHTLEVEL, 1, 0, 0, YES, NO },
-	{ "playerclass", PCD_NOP, PCD_PLAYERCLASS, 1, 0, 0, YES, NO },
-	{ "getplayerinfo", PCD_NOP, PCD_GETPLAYERINFO, 2, 0, 0, YES, NO },
-	{ "changelevel", PCD_NOP, PCD_CHANGELEVEL, 4, 8, 0, NO, NO },
-	{ "sectordamage", PCD_NOP, PCD_SECTORDAMAGE, 5, 0, 0, NO, NO },
-	{ "replacetextures", PCD_NOP, PCD_REPLACETEXTURES, 3, 4, 0, NO, NO },
-	{ "getactorpitch", PCD_NOP, PCD_GETACTORPITCH, 1, 0, 0, YES, NO },
-	{ "setactorpitch", PCD_NOP, PCD_SETACTORPITCH, 2, 0, 0, NO, NO },
-	{ "setactorstate", PCD_NOP, PCD_SETACTORSTATE, 3, 4, 0, YES, NO },
-	{ "thing_damage2", PCD_NOP, PCD_THINGDAMAGE2, 3, 0, 0, YES, NO },
-	{ "useinventory", PCD_NOP, PCD_USEINVENTORY, 1, 0, 0, YES, NO },
-	{ "useactorinventory", PCD_NOP, PCD_USEACTORINVENTORY, 2, 0, 0, YES, NO },
-	{ "checkactorceilingtexture", PCD_NOP, PCD_CHECKACTORCEILINGTEXTURE, 2, 0, 0, YES, NO },
-	{ "checkactorfloortexture", PCD_NOP, PCD_CHECKACTORFLOORTEXTURE, 2, 0, 0, YES, NO },
-	{ "getactorlightlevel", PCD_NOP, PCD_GETACTORLIGHTLEVEL, 1, 0, 0, YES, NO },
-	{ "setmugshotstate", PCD_NOP, PCD_SETMUGSHOTSTATE, 1, 0, 0, NO, NO },
-	{ "thingcountsector", PCD_NOP, PCD_THINGCOUNTSECTOR, 3, 0, 0, YES, NO },
-	{ "thingcountnamesector", PCD_NOP, PCD_THINGCOUNTNAMESECTOR, 3, 0, 0, YES, NO },
-	{ "checkplayercamera", PCD_NOP, PCD_CHECKPLAYERCAMERA, 1, 0, 0, YES, NO },
-	{ "morphactor", PCD_NOP, PCD_MORPHACTOR, 7, 2|4|8|16|32|64, 0, YES, NO },
-	{ "unmorphactor", PCD_NOP, PCD_UNMORPHACTOR, 2, 2, 0, YES, NO },
-	{ "getplayerinput", PCD_NOP, PCD_GETPLAYERINPUT, 2, 0, 0, YES, NO },
-	{ "classifyactor", PCD_NOP, PCD_CLASSIFYACTOR, 1, 0, 0, YES, NO },
+	{ "setgravity", PCD_SETGRAVITYDIRECT, PCD_SETGRAVITY, 1, 0, 0, false, false },
+	{ "setaircontrol", PCD_SETAIRCONTROLDIRECT, PCD_SETAIRCONTROL, 1, 0, 0, false, false },
+	{ "clearinventory", PCD_NOP, PCD_CLEARINVENTORY, 0, 0, 0, false, false },
+	{ "giveinventory", PCD_GIVEINVENTORYDIRECT, PCD_GIVEINVENTORY, 2, 0, 0, false, false },
+	{ "takeinventory", PCD_TAKEINVENTORYDIRECT, PCD_TAKEINVENTORY, 2, 0, 0, false, false },
+	{ "checkinventory", PCD_CHECKINVENTORYDIRECT, PCD_CHECKINVENTORY, 1, 0, 0, true, false },
+	{ "clearactorinventory", PCD_NOP, PCD_CLEARACTORINVENTORY, 1, 0, 0, false, false },
+	{ "giveactorinventory", PCD_NOP, PCD_GIVEACTORINVENTORY, 3, 0, 0, false, false },
+	{ "takeactorinventory", PCD_NOP, PCD_TAKEACTORINVENTORY, 3, 0, 0, false, false },
+	{ "checkactorinventory", PCD_NOP, PCD_CHECKACTORINVENTORY, 2, 0, 0, true, false },
+	{ "spawn", PCD_SPAWNDIRECT, PCD_SPAWN, 6, 16|32, 0, true, false },
+	{ "spawnspot", PCD_SPAWNSPOTDIRECT, PCD_SPAWNSPOT, 4, 4|8, 0, true, false },
+	{ "spawnspotfacing", PCD_NOP, PCD_SPAWNSPOTFACING, 3, 4, 0, true, false },
+	{ "setmusic", PCD_SETMUSICDIRECT, PCD_SETMUSIC, 3, 2|4, 0, false, false },
+	{ "localsetmusic", PCD_LOCALSETMUSICDIRECT, PCD_LOCALSETMUSIC, 3, 2|4, 0, false, false },
+	{ "setstyle", PCD_SETSTYLEDIRECT, PCD_SETSTYLE, 1, 0, 0, false, false },
+	{ "setfont", PCD_SETFONTDIRECT, PCD_SETFONT, 1, 0, 0, false, false },
+	{ "setthingspecial", PCD_NOP, PCD_SETTHINGSPECIAL, 7, 4|8|16|32|64, 0, false, false },
+	{ "fadeto", PCD_NOP, PCD_FADETO, 5, 0, 0, false, false },
+	{ "faderange", PCD_NOP, PCD_FADERANGE, 9, 0, 0, false, false },
+	{ "cancelfade", PCD_NOP, PCD_CANCELFADE, 0, 0, 0, false, false },
+	{ "playmovie", PCD_NOP, PCD_PLAYMOVIE, 1, 0, 0, true, false },
+	{ "setfloortrigger", PCD_NOP, PCD_SETFLOORTRIGGER, 8, 8|16|32|64|128, 0, false, false },
+	{ "setceilingtrigger", PCD_NOP, PCD_SETCEILINGTRIGGER, 8, 8|16|32|64|128, 0, false, false },
+	{ "setactorposition", PCD_NOP, PCD_SETACTORPOSITION, 5, 0, 0, true, false },
+	{ "getactorx", PCD_NOP, PCD_GETACTORX, 1, 0, 0, true, false },
+	{ "getactory", PCD_NOP, PCD_GETACTORY, 1, 0, 0, true, false },
+	{ "getactorz", PCD_NOP, PCD_GETACTORZ, 1, 0, 0, true, false },
+	{ "getactorfloorz", PCD_NOP, PCD_GETACTORFLOORZ, 1, 0, 0, true, false },
+	{ "getactorceilingz", PCD_NOP, PCD_GETACTORCEILINGZ, 1, 0, 0, true, false },
+	{ "getactorangle", PCD_NOP, PCD_GETACTORANGLE, 1, 0, 0, true, false },
+	{ "writetoini", PCD_NOP, PCD_WRITETOINI, 3, 0, 0, false, false },
+	{ "getfromini", PCD_NOP, PCD_GETFROMINI, 3, 0, 0, true, false },
+	{ "sin", PCD_NOP, PCD_SIN, 1, 0, 0, true, false },
+	{ "cos", PCD_NOP, PCD_COS, 1, 0, 0, true, false },
+	{ "vectorangle", PCD_NOP, PCD_VECTORANGLE, 2, 0, 0, true, false },
+	{ "checkweapon", PCD_NOP, PCD_CHECKWEAPON, 1, 0, 0, true, false },
+	{ "setweapon", PCD_NOP, PCD_SETWEAPON, 1, 0, 0, true, false },
+	{ "setmarineweapon", PCD_NOP, PCD_SETMARINEWEAPON, 2, 0, 0, false, false },
+	{ "setactorproperty", PCD_NOP, PCD_SETACTORPROPERTY, 3, 0, 0, false, false },
+	{ "getactorproperty", PCD_NOP, PCD_GETACTORPROPERTY, 2, 0, 0, true, false },
+	{ "playernumber", PCD_NOP, PCD_PLAYERNUMBER, 0, 0, 0, true, false },
+	{ "activatortid", PCD_NOP, PCD_ACTIVATORTID, 0, 0, 0, true, false },
+	{ "setmarinesprite", PCD_NOP, PCD_SETMARINESPRITE, 2, 0, 0, false, false },
+	{ "getscreenwidth", PCD_NOP, PCD_GETSCREENWIDTH, 0, 0, 0, true, false },
+	{ "getscreenheight", PCD_NOP, PCD_GETSCREENHEIGHT, 0, 0, 0, true, false },
+	{ "thing_projectile2", PCD_NOP, PCD_THING_PROJECTILE2, 7, 0, 0, false, false },
+	{ "strlen", PCD_NOP, PCD_STRLEN, 1, 0, 0, true, false },
+	{ "sethudsize", PCD_NOP, PCD_SETHUDSIZE, 3, 0, 0, false, false },
+	{ "getcvar", PCD_NOP, PCD_GETCVAR, 1, 0, 0, true, false },
+	{ "setresultvalue", PCD_NOP, PCD_SETRESULTVALUE, 1, 0, 0, false, false },
+	{ "getlinerowoffset", PCD_NOP, PCD_GETLINEROWOFFSET, 0, 0, 0, true, false },
+	{ "getsectorfloorz", PCD_NOP, PCD_GETSECTORFLOORZ, 3, 0, 0, true, false },
+	{ "getsectorceilingz", PCD_NOP, PCD_GETSECTORCEILINGZ, 3, 0, 0, true, false },
+	{ "getsigilpieces", PCD_NOP, PCD_GETSIGILPIECES, 0, 0, 0, true, false },
+	{ "getlevelinfo", PCD_NOP, PCD_GETLEVELINFO, 1, 0, 0, true, false },
+	{ "changesky", PCD_NOP, PCD_CHANGESKY, 2, 0, 0, false, false },
+	{ "playeringame", PCD_NOP, PCD_PLAYERINGAME, 1, 0, 0, true, false },
+	{ "playerisbot", PCD_NOP, PCD_PLAYERISBOT, 1, 0, 0, true, false },
+	{ "setcameratotexture", PCD_NOP, PCD_SETCAMERATOTEXTURE, 3, 0, 0, false, false },
+	{ "grabinput", PCD_NOP, PCD_GRABINPUT, 2, 0, 0, false, false },
+	{ "setmousepointer", PCD_NOP, PCD_SETMOUSEPOINTER, 3, 0, 0, false, false },
+	{ "movemousepointer", PCD_NOP, PCD_MOVEMOUSEPOINTER, 2, 0, 0, false, false },
+	{ "getammocapacity", PCD_NOP, PCD_GETAMMOCAPACITY, 1, 0, 0, true, false },
+	{ "setammocapacity", PCD_NOP, PCD_SETAMMOCAPACITY, 2, 0, 0, false, false },
+	{ "setactorangle", PCD_NOP, PCD_SETACTORANGLE, 2, 0, 0, false, false },
+	{ "spawnprojectile", PCD_NOP, PCD_SPAWNPROJECTILE, 7, 0, 0, false, false },
+	{ "getsectorlightlevel", PCD_NOP, PCD_GETSECTORLIGHTLEVEL, 1, 0, 0, true, false },
+	{ "playerclass", PCD_NOP, PCD_PLAYERCLASS, 1, 0, 0, true, false },
+	{ "getplayerinfo", PCD_NOP, PCD_GETPLAYERINFO, 2, 0, 0, true, false },
+	{ "changelevel", PCD_NOP, PCD_CHANGELEVEL, 4, 8, 0, false, false },
+	{ "sectordamage", PCD_NOP, PCD_SECTORDAMAGE, 5, 0, 0, false, false },
+	{ "replacetextures", PCD_NOP, PCD_REPLACETEXTURES, 3, 4, 0, false, false },
+	{ "getactorpitch", PCD_NOP, PCD_GETACTORPITCH, 1, 0, 0, true, false },
+	{ "setactorpitch", PCD_NOP, PCD_SETACTORPITCH, 2, 0, 0, false, false },
+	{ "setactorstate", PCD_NOP, PCD_SETACTORSTATE, 3, 4, 0, true, false },
+	{ "thing_damage2", PCD_NOP, PCD_THINGDAMAGE2, 3, 0, 0, true, false },
+	{ "useinventory", PCD_NOP, PCD_USEINVENTORY, 1, 0, 0, true, false },
+	{ "useactorinventory", PCD_NOP, PCD_USEACTORINVENTORY, 2, 0, 0, true, false },
+	{ "checkactorceilingtexture", PCD_NOP, PCD_CHECKACTORCEILINGTEXTURE, 2, 0, 0, true, false },
+	{ "checkactorfloortexture", PCD_NOP, PCD_CHECKACTORFLOORTEXTURE, 2, 0, 0, true, false },
+	{ "getactorlightlevel", PCD_NOP, PCD_GETACTORLIGHTLEVEL, 1, 0, 0, true, false },
+	{ "setmugshotstate", PCD_NOP, PCD_SETMUGSHOTSTATE, 1, 0, 0, false, false },
+	{ "thingcountsector", PCD_NOP, PCD_THINGCOUNTSECTOR, 3, 0, 0, true, false },
+	{ "thingcountnamesector", PCD_NOP, PCD_THINGCOUNTNAMESECTOR, 3, 0, 0, true, false },
+	{ "checkplayercamera", PCD_NOP, PCD_CHECKPLAYERCAMERA, 1, 0, 0, true, false },
+	{ "morphactor", PCD_NOP, PCD_MORPHACTOR, 7, 2|4|8|16|32|64, 0, true, false },
+	{ "unmorphactor", PCD_NOP, PCD_UNMORPHACTOR, 2, 2, 0, true, false },
+	{ "getplayerinput", PCD_NOP, PCD_GETPLAYERINPUT, 2, 0, 0, true, false },
+	{ "classifyactor", PCD_NOP, PCD_CLASSIFYACTOR, 1, 0, 0, true, false },
 	
-	{ NULL, PCD_NOP, PCD_NOP, 0, 0, 0, NO, NO }
+	{ NULL, PCD_NOP, PCD_NOP, 0, 0, 0, false, false }
 };
 
 static char *SymbolTypeNames[] =
@@ -227,7 +227,7 @@ static char *SymbolTypeNames[] =
 //
 //==========================================================================
 
-void SY_Init(void)
+void SY_Init()
 {
 	symbolNode_t *sym;
 	internFuncDef_t *def;
@@ -276,7 +276,7 @@ symbolNode_t *SY_FindGlobal(char *name)
 	if(sym != NULL && sym->unused)
 	{
 		MS_Message(MSG_DEBUG, "Symbol %s marked as used.\n", name);
-		sym->unused = NO;
+		sym->unused = false;
 		if(sym->type == SY_SCRIPTFUNC)
 		{
 			PC_AddFunction(sym);
@@ -285,7 +285,7 @@ symbolNode_t *SY_FindGlobal(char *name)
 		{
 			if(pa_MapVarCount >= MAX_MAP_VARIABLES)
 			{
-				ERR_Error(ERR_TOO_MANY_MAP_VARS, YES);
+				ERR_Error(ERR_TOO_MANY_MAP_VARS, true);
 			}
 			else
 			{
@@ -297,7 +297,7 @@ symbolNode_t *SY_FindGlobal(char *name)
 		{
 			if(pa_MapVarCount >= MAX_MAP_VARIABLES)
 			{
-				ERR_Error(ERR_TOO_MANY_MAP_VARS, YES);
+				ERR_Error(ERR_TOO_MANY_MAP_VARS, true);
 			}
 			else
 			{
@@ -365,7 +365,7 @@ symbolNode_t *SY_InsertLocal(char *name, symbolType_t type)
 {
 	if(Find(name, GlobalRoot))
 	{
-		ERR_Error(ERR_LOCAL_VAR_SHADOWED, YES);
+		ERR_Error(ERR_LOCAL_VAR_SHADOWED, true);
 	}
 	MS_Message(MSG_DEBUG, "Inserting local identifier: %s (%s)\n",
 		name, SymbolTypeNames[type]);
@@ -395,7 +395,7 @@ symbolNode_t *SY_InsertGlobalUnique(char *name, symbolType_t type)
 {
 	if(SY_FindGlobal(name) != NULL)
 	{ // Redefined
-		ERR_Exit(ERR_REDEFINED_IDENTIFIER, YES, name);
+		ERR_Exit(ERR_REDEFINED_IDENTIFIER, true, name);
 	}
 	return SY_InsertGlobal(name, type);
 }
@@ -413,12 +413,13 @@ static symbolNode_t *Insert(char *name, symbolType_t type,
 	symbolNode_t *newNode;
 	symbolNode_t *node;
 
-	newNode = MS_Alloc(sizeof(symbolNode_t), ERR_NO_SYMBOL_MEM);
-	newNode->name = MS_Alloc(strlen(name)+1, ERR_NO_SYMBOL_MEM);
+	newNode = new symbolNode_t;
+	newNode->name = new char[strlen(name) + 1];
+	copy(newNode->name, name, strlen(name));
 	strcpy(newNode->name, name);
 	newNode->left = newNode->right = NULL;
 	newNode->type = type;
-	newNode->unused = NO;
+	newNode->unused = false;
 	newNode->imported = ImportMode == IMPORT_Importing;
 	while((node = *root) != NULL)
 	{
@@ -435,7 +436,7 @@ static symbolNode_t *Insert(char *name, symbolType_t type,
 //
 //==========================================================================
 
-void SY_FreeLocals(void)
+void SY_FreeLocals()
 {
 	MS_Message(MSG_DEBUG, "Freeing local identifiers\n");
 	FreeNodes(LocalRoot);
@@ -448,7 +449,7 @@ void SY_FreeLocals(void)
 //
 //==========================================================================
 
-void SY_FreeGlobals(void)
+void SY_FreeGlobals()
 {
 	MS_Message(MSG_DEBUG, "Freeing global identifiers\n");
 	FreeNodes(GlobalRoot);
@@ -574,7 +575,7 @@ static void DeleteNode(symbolNode_t *node, symbolNode_t **parent_p)
 //
 //==========================================================================
 
-void SY_ClearShared(void)
+void SY_ClearShared()
 {
 	MS_Message(MSG_DEBUG, "Marking library exports as unused\n");
 	ClearShared(GlobalRoot);
@@ -594,7 +595,7 @@ static void ClearShared(symbolNode_t *root)
 			root->type == SY_MAPVAR ||
 			root->type == SY_MAPARRAY)
 		{
-			root->unused = YES;
+			root->unused = true;
 		}
 		ClearShared(root->left);
 		root = root->right;

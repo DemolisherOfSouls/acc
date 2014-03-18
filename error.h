@@ -5,8 +5,7 @@
 //**
 //**************************************************************************
 
-#ifndef __ERROR_H__
-#define __ERROR_H__
+#pragma once
 
 // HEADER FILES ------------------------------------------------------------
 
@@ -17,7 +16,7 @@
 
 // TYPES -------------------------------------------------------------------
 
-typedef enum
+enum error_t : int
 {
 	ERR_NONE = 0,
 	ERR_NO_SYMBOL_MEM = 10,
@@ -150,17 +149,22 @@ typedef enum
 	ERR_HEXEN_COMPAT,
 	ERR_NOT_HEXEN,
 	ERR_SPECIAL_RANGE,
-} error_t;
+	// [JRT] New for ACC++
+	ERR_BAD_CONSTRUCTOR,
+	ERR_BAD_METHOD,
+	ERR_NO_STRUCT_ARRAY_INIT,
+	ERR_ALREADY_DELETED,
+	ERR_CANNOT_MODIFY_CONST,
+};
 
 // PUBLIC FUNCTION PROTOTYPES ----------------------------------------------
 
-void ERR_ErrorAt(char *sourceName, int sourceLine);
-void ERR_Error(error_t error, boolean info, ...);
-void ERR_ErrorV(error_t error, boolean info, va_list args);
-void ERR_Finish(void);
-void ERR_Exit(error_t error, boolean info, ...);
-void ERR_RemoveErrorFile(void);
+void ERR_ErrorAt(string sourceName, int sourceLine);
+void ERR_Error(int error, bool info, ...);
+void ERR_ErrorV(int error, bool info, va_list args);
+void ERR_Finish();
+void ERR_Exit(int error, bool info, ...);
+void ERR_RemoveErrorFile();
+void ERR_BadAlloc();
 
 // PUBLIC DATA DECLARATIONS ------------------------------------------------
-
-#endif

@@ -5,35 +5,33 @@
 //**
 //**************************************************************************
 
-#ifndef __PCODE_H__
-#define __PCODE_H__
+#pragma once
 
 // HEADER FILES ------------------------------------------------------------
 
-#include <stddef.h>
 #include "common.h"
 
 // MACROS ------------------------------------------------------------------
 
 // Values to indicate a script's type
-enum
+enum : int
 {
 	OPEN_SCRIPTS_BASE			= 1,
-	RESPAWN_SCRIPTS_BASE		= 2,	// [BC]
-	DEATH_SCRIPTS_BASE			= 3,	// [BC]
-	ENTER_SCRIPTS_BASE			= 4,	// [BC]
-	PICKUP_SCRIPTS_BASE			= 5,	// [BC]
-	BLUE_RETURN_SCRIPTS_BASE	= 6,	// [BC]
-	RED_RETURN_SCRIPTS_BASE		= 7,	// [BC]
-	WHITE_RETURN_SCRIPTS_BASE	= 8,	// [BC]
+	RESPAWN_SCRIPTS_BASE,		// [BC]
+	DEATH_SCRIPTS_BASE,			// [BC]
+	ENTER_SCRIPTS_BASE,			// [BC]
+	PICKUP_SCRIPTS_BASE,		// [BC]
+	BLUE_RETURN_SCRIPTS_BASE,	// [BC]
+	RED_RETURN_SCRIPTS_BASE,	// [BC]
+	WHITE_RETURN_SCRIPTS_BASE,	// [BC]
 	LIGHTNING_SCRIPTS_BASE		= 12,
-	UNLOADING_SCRIPTS_BASE		= 13,
-	DISCONNECT_SCRIPTS_BASE		= 14,
-	RETURN_SCRIPTS_BASE			= 15,
+	UNLOADING_SCRIPTS_BASE,
+	DISCONNECT_SCRIPTS_BASE,
+	RETURN_SCRIPTS_BASE,
 };
 
 // Values to indicate script flags (requires new-style .o)
-enum
+enum : int
 {
 	NET_SCRIPT_FLAG			= 0x0001,
 	CLIENTSIDE_SCRIPT_FLAG	= 0x0002, // [BB]
@@ -41,7 +39,7 @@ enum
 
 // Or'ed with variable index when passing variables of type "out"
 // An idea that was never realized.
-enum
+enum : unsigned int
 {
 	OUTVAR_SCRIPT_SPEC		= 0x40000000,
 	OUTVAR_MAP_SPEC			= 0x80000000,
@@ -51,11 +49,11 @@ enum
 
 // TYPES -------------------------------------------------------------------
 
-struct symbolNode_s;	// Defined in symbol.h
-	
-typedef enum
+struct symbolNode_t;	// Defined in symbol.h
+
+enum pcd_t : int
 {
-	PCD_NOP,
+	PCD_NOP = 0,
 	PCD_TERMINATE,
 	PCD_SUSPEND,
 	PCD_PUSHNUMBER,
@@ -414,7 +412,7 @@ typedef enum
 	PCD_PRINTBINARY,
 	PCD_PRINTHEX,
 	PCD_CALLFUNC,
-	PCD_SAVESTRING,		// [FDARI]
+	PCD_SAVESTRING,			// [FDARI]
 	PCD_PRINTMAPCHRANGE,	// [FDARI] output range
 	PCD_PRINTWORLDCHRANGE,
 	PCD_PRINTGLOBALCHRANGE,
@@ -427,52 +425,46 @@ typedef enum
 	PCD_TRANSLATIONRANGE3,
 
 	PCODE_COMMAND_COUNT
-} pcd_t;
+};
 
 // PUBLIC FUNCTION PROTOTYPES ----------------------------------------------
 
 void PC_OpenObject(char *name, size_t size, int flags);
-void PC_CloseObject(void);
+void PC_CloseObject();
 void PC_Append(void *buffer, size_t size);
-void PC_AppendByte(U_BYTE val);
-void PC_AppendWord(U_WORD val);
-void PC_AppendInt(U_INT val);
+void PC_AppendByte(byte val);
+void PC_AppendWord(short val);
+void PC_AppendInt(int val);
 void PC_AppendString(char *string);
-void PC_AppendCmd(pcd_t command);
-void PC_AppendPushVal(U_INT val);
-void PC_AppendShrink(U_BYTE val);
+void PC_AppendCmd(int command);
+void PC_AppendPushVal(int val);
+void PC_AppendShrink(byte val);
 void PC_Write(void *buffer, size_t size, int address);
-void PC_WriteByte(U_BYTE val, int address);
-//void PC_WriteWord(U_WORD val, int address);
-void PC_WriteInt(U_INT val, int address);
+void PC_WriteByte(byte val, int address);
+void PC_WriteInt(int val, int address);
 void PC_WriteString(char *string, int address);
-void PC_WriteCmd(pcd_t command, int address);
+void PC_WriteCmd(int command, int address);
 void PC_Skip(size_t size);
-//void PC_SkipByte(void);
-//void PC_SkipWord(void);
-void PC_SkipInt(void);
+void PC_SkipInt();
 void PC_AddScript(int number, int type, int flags, int argCount);
 void PC_SetScriptVarCount(int number, int type, int varCount);
-void PC_AddFunction(struct symbolNode_s *sym);
+void PC_AddFunction(struct symbolNode_t *sym);
 void PC_PutMapVariable(int index, int value);
-void PC_NameMapVariable(int index, struct symbolNode_s *sym);
+void PC_NameMapVariable(int index, struct symbolNode_t *sym);
 void PC_AddArray(int index, int size);
-void PC_InitArray(int index, int *entries, boolean hasStrings);
-int PC_AddImport(char *name);
+void PC_InitArray(int index, int *entries, bool hasStrings);
+int  PC_AddImport(char *name);
 
 // PUBLIC DATA DECLARATIONS ------------------------------------------------
 
-extern int pc_Address;
-extern byte *pc_Buffer;
-extern byte *pc_BufferPtr;
-extern int pc_ScriptCount;
-extern int pc_FunctionCount;
-extern boolean pc_NoShrink;
-extern boolean pc_HexenCase;
-extern boolean pc_EnforceHexen;
-extern boolean pc_WarnNotHexen;
-extern boolean pc_WadAuthor;
-extern boolean pc_EncryptStrings;
-extern int pc_LastAppendedCommand;
+extern vector<byte>	pCode_Buffer;		// Vector containing the written pCodes
+extern int			pCode_ScriptCount;	// Current script count
+extern int			pCode_FunctionCount;// Current function count
+extern int			pCode_StructCount;	// Current struct count
+extern bool pc_NoShrink;
+extern bool pc_HexenCase;
+extern bool pc_EnforceHexen;
+extern bool pc_WarnNotHexen;
+extern bool pc_WadAuthor;
+extern bool pc_EncryptStrings;
 
-#endif

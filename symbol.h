@@ -5,8 +5,7 @@
 //**
 //**************************************************************************
 
-#ifndef __SYMBOL_H__
-#define __SYMBOL_H__
+#pragma once
 
 // HEADER FILES ------------------------------------------------------------
 
@@ -19,7 +18,7 @@
 
 // TYPES -------------------------------------------------------------------
 
-typedef enum
+enum symbolType_t : int
 {
 	SY_DUMMY,
 	SY_LABEL,
@@ -35,69 +34,76 @@ typedef enum
 	SY_CONSTANT,
 	SY_INTERNFUNC,
 	SY_SCRIPTFUNC
-} symbolType_t;
+};
 
-typedef struct
+struct symVar_t
 {
-	U_BYTE index;
-} symVar_t;
+	byte index;
+	int vartype;
+};
 
-typedef struct
+struct symArray_t
 {
-	U_BYTE index;
+	byte index;
 	int dimensions[MAX_ARRAY_DIMS];
 	int ndim;
 	int size;
-} symArray_t;
+};
 
-typedef struct
+struct symStruct_t
+{
+	byte index;
+	int vartype;
+};
+
+struct symLabel_t
 {
 	int address;
-} symLabel_t;
+};
 
-typedef struct
+struct symSpecial_t
 {
 	int value;
 	int argCount;
-} symSpecial_t;
+};
 
-typedef struct
+struct symConstant_t
 {
 	int value;
 	int fileDepth;
-} symConstant_t;
+};
 
-typedef struct
+struct symInternFunc_t
 {
 	pcd_t directCommand;
 	pcd_t stackCommand;
 	int argCount;
 	int optMask;
 	int outMask;
-	boolean hasReturnValue;
-	boolean latent;
-} symInternFunc_t;
+	bool hasReturnValue;
+	bool latent;
+};
 
-typedef struct
+struct symScriptFunc_t
 {
 	int address;
 	int argCount;
 	int varCount;
 	int funcNumber;
-	boolean hasReturnValue;
+	bool hasReturnValue;
 	int sourceLine;
 	char *sourceName;
-	boolean predefined;
-} symScriptFunc_t;
+	bool predefined;
+};
 
-typedef struct symbolNode_s
+struct symbolNode_t
 {
-	struct symbolNode_s *left;
-	struct symbolNode_s *right;
+	struct symbolNode_t *left;
+	struct symbolNode_t *right;
 	char *name;
 	symbolType_t type;
-	boolean unused;
-	boolean imported;
+	bool unused;
+	bool imported;
 	union
 	{
 		symVar_t var;
@@ -107,23 +113,23 @@ typedef struct symbolNode_s
 		symConstant_t constant;
 		symInternFunc_t internFunc;
 		symScriptFunc_t scriptFunc;
+		symStruct_t a_struct;
 	} info;
-} symbolNode_t;
+};
 
 // PUBLIC FUNCTION PROTOTYPES ----------------------------------------------
 
-void SY_Init(void);
+void SY_Init();
 symbolNode_t *SY_Find(char *name);
 symbolNode_t *SY_FindLocal(char *name);
 symbolNode_t *SY_FindGlobal(char *name);
 symbolNode_t *SY_InsertLocal(char *name, symbolType_t type);
 symbolNode_t *SY_InsertGlobal(char *name, symbolType_t type);
 symbolNode_t *SY_InsertGlobalUnique(char *name, symbolType_t type);
-void SY_FreeLocals(void);
-void SY_FreeGlobals(void);
+void SY_FreeLocals();
+void SY_FreeGlobals();
 void SY_FreeConstants(int depth);
-void SY_ClearShared(void);
+void SY_ClearShared();
 
 // PUBLIC DATA DECLARATIONS ------------------------------------------------
 
-#endif

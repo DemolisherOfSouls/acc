@@ -7,8 +7,9 @@
 
 // HEADER FILES ------------------------------------------------------------
 
-#include <string.h>
-#include <stddef.h>
+#include <string>
+#include <cstddef>
+#include <vector>
 #include <stdio.h>
 #include "pcode.h"
 #include "common.h"
@@ -23,34 +24,34 @@
 
 // TYPES -------------------------------------------------------------------
 
-typedef struct scriptInfo_s
+struct scriptInfo_t
 {
-	S_WORD number;
-	U_BYTE type;
-	U_BYTE argCount;
-	U_WORD varCount;
-	U_WORD flags;
+	short number;
+	byte type;
+	byte argCount;
+	short varCount;
+	short flags;
 	int address;
 	int srcLine;
-	boolean imported;
-} scriptInfo_t;
+	bool imported;
+};
 
-typedef struct functionInfo_s
+struct functionInfo_t
 {
-	U_BYTE hasReturnValue;
-	U_BYTE argCount;
-	U_BYTE localCount;
+	byte hasReturnValue;
+	byte argCount;
+	byte localCount;
 	int address;
 	int name;
-} functionInfo_t;
+};
 
-typedef struct mapVarInfo_s
+struct mapVarInfo_t
 {
 	int initializer;
-	boolean isString;
+	bool isString;
 	char *name;
-	boolean imported;
-} mapVarInfo_t;
+	bool imported;
+};
 
 // EXTERNAL FUNCTION PROTOTYPES --------------------------------------------
 
@@ -58,53 +59,56 @@ typedef struct mapVarInfo_s
 
 // PRIVATE FUNCTION PROTOTYPES ---------------------------------------------
 
-static void GrowBuffer(void);
+static void pCode_CommandLog(int location, int pCode);
+static void GrowBuffer();
 static void Append(void *buffer, size_t size);
 static void Write(void *buffer, size_t size, int address);
 static void Skip(size_t size);
-static void CloseOld(void);
-static void CloseNew(void);
-static void CreateDummyScripts(void);
-static void RecordDummyScripts(void);
+static void CloseOld();
+static void CloseNew();
+static void CreateDummyScripts();
+static void RecordDummyScripts();
 
 // EXTERNAL DATA DECLARATIONS ----------------------------------------------
 
 // PUBLIC DATA DEFINITIONS -------------------------------------------------
 
-int pc_Address;
-byte *pc_Buffer;
-byte *pc_BufferPtr;
+int pCode_current;
+vector<byte> pCode_Buffer;
 int pc_ScriptCount;
 int pc_FunctionCount;
-boolean pc_NoShrink;
-boolean pc_HexenCase;
-boolean pc_EnforceHexen;
-boolean pc_WarnNotHexen;
-boolean pc_WadAuthor = TRUE;
-boolean pc_EncryptStrings;
-int pc_LastAppendedCommand;
-int pc_DummyAddress;
+bool pc_NoShrink;
+bool pc_HexenCase;
+bool pc_EnforceHexen;
+bool pc_WarnNotHexen;
+bool pc_WadAuthor = true;
+bool pc_EncryptStrings;
 
 // PRIVATE DATA DEFINITIONS ------------------------------------------------
 
-static size_t BufferSize;
-static boolean ObjectOpened = NO;
+static bool ObjectOpened = false;
 static scriptInfo_t ScriptInfo[MAX_SCRIPT_COUNT];
 static functionInfo_t FunctionInfo[MAX_FUNCTION_COUNT];
 static int ArraySizes[MAX_MAP_VARIABLES];
 static int *ArrayInits[MAX_MAP_VARIABLES];
-static boolean ArrayOfStrings[MAX_MAP_VARIABLES];
+static bool ArrayOfStrings[MAX_MAP_VARIABLES];
 static int NumArrays;
 static mapVarInfo_t MapVariables[MAX_MAP_VARIABLES];
-static boolean MapVariablesInit = NO;
-static char ObjectName[MAX_FILE_NAME_LENGTH];
+static bool MapVariablesInit = false;
+static string ObjectName;
 static int ObjectFlags;
 static int PushByteAddr;
-static char Imports[MAX_IMPORTS][9];
-static int NumImports;
-static boolean HaveExtendedScripts;
+static vector<string> Imports = vector<string>(MAX_IMPORTS);
+static bool HaveExtendedScripts;
 
-static char *PCDNames[PCODE_COMMAND_COUNT] =
+
+#pragma region pCode_Names
+
+//This is so that ACC doesn't have to carry around these strings
+//unless someone is actually developing it, and requires them
+
+#if _DEBUG
+static char *pCode_Names[PCODE_COMMAND_COUNT] =
 {
 	"PCD_NOP",
 	"PCD_TERMINATE",
@@ -208,11 +212,11 @@ static char *PCDNames[PCODE_COMMAND_COUNT] =
 	"PCD_SETLINESPECIAL",
 	"PCD_THINGSOUND",
 	"PCD_ENDPRINTBOLD",
-// [RH] End of Hexen p-codes
+	// [RH] End of Hexen p-codes
 	"PCD_ACTIVATORSOUND",
 	"PCD_LOCALAMBIENTSOUND",
 	"PCD_SETLINEMONSTERBLOCKING",
-// [BC] Start of new pcodes
+	// [BC] Start of new pcodes
 	"PCD_PLAYERBLUESKULL",
 	"PCD_PLAYERREDSKULL",
 	"PCD_PLAYERYELLOWSKULL",
@@ -244,7 +248,7 @@ static char *PCDNames[PCODE_COMMAND_COUNT] =
 	"PCD_CONSOLECOMMANDDIRECT",
 	"PCD_CONSOLECOMMAND",
 	"PCD_SINGLEPLAYER",
-// [RH] End of Skull Tag p-codes
+	// [RH] End of Skull Tag p-codes
 	"PCD_FIXEDMUL",
 	"PCD_FIXEDDIV",
 	"PCD_SETGRAVITY",
@@ -382,11 +386,11 @@ static char *PCDNames[PCODE_COMMAND_COUNT] =
 	"PCD_ENDLOG",
 	"PCD_GETAMMOCAPACITY",
 	"PCD_SETAMMOCAPACITY",
-// [JB] start of new pcodes
+	// [JB] start of new pcodes
 	"PCD_PRINTMAPCHARARRAY",
 	"PCD_PRINTWORLDCHARARRAY",
 	"PCD_PRINTGLOBALCHARARRAY",
-// [JB] end of new pcodes
+	// [JB] end of new pcodes
 	"PCD_SETACTORANGLE",
 	"PCD_GRABINPUT",
 	"PCD_SETMOUSEPOINTER",
@@ -404,40 +408,40 @@ static char *PCDNames[PCODE_COMMAND_COUNT] =
 	"PCD_PLAYERCLASS",
 	//[MW] start my p-codes
 	"PCD_ANDSCRIPTVAR",
-	"PCD_ANDMAPVAR", 
-	"PCD_ANDWORLDVAR", 
-	"PCD_ANDGLOBALVAR", 
-	"PCD_ANDMAPARRAY", 
-	"PCD_ANDWORLDARRAY", 
+	"PCD_ANDMAPVAR",
+	"PCD_ANDWORLDVAR",
+	"PCD_ANDGLOBALVAR",
+	"PCD_ANDMAPARRAY",
+	"PCD_ANDWORLDARRAY",
 	"PCD_ANDGLOBALARRAY",
-	"PCD_EORSCRIPTVAR", 
-	"PCD_EORMAPVAR", 
-	"PCD_EORWORLDVAR", 
-	"PCD_EORGLOBALVAR", 
-	"PCD_EORMAPARRAY", 
-	"PCD_EORWORLDARRAY", 
+	"PCD_EORSCRIPTVAR",
+	"PCD_EORMAPVAR",
+	"PCD_EORWORLDVAR",
+	"PCD_EORGLOBALVAR",
+	"PCD_EORMAPARRAY",
+	"PCD_EORWORLDARRAY",
 	"PCD_EORGLOBALARRAY",
-	"PCD_ORSCRIPTVAR", 
-	"PCD_ORMAPVAR", 
-	"PCD_ORWORLDVAR", 
-	"PCD_ORGLOBALVAR", 
-	"PCD_ORMAPARRAY", 
-	"PCD_ORWORLDARRAY", 
+	"PCD_ORSCRIPTVAR",
+	"PCD_ORMAPVAR",
+	"PCD_ORWORLDVAR",
+	"PCD_ORGLOBALVAR",
+	"PCD_ORMAPARRAY",
+	"PCD_ORWORLDARRAY",
 	"PCD_ORGLOBALARRAY",
-	"PCD_LSSCRIPTVAR", 
-	"PCD_LSMAPVAR", 
-	"PCD_LSWORLDVAR", 
-	"PCD_LSGLOBALVAR", 
-	"PCD_LSMAPARRAY", 
-	"PCD_LSWORLDARRAY", 
+	"PCD_LSSCRIPTVAR",
+	"PCD_LSMAPVAR",
+	"PCD_LSWORLDVAR",
+	"PCD_LSGLOBALVAR",
+	"PCD_LSMAPARRAY",
+	"PCD_LSWORLDARRAY",
 	"PCD_LSGLOBALARRAY",
-	"PCD_RSSCRIPTVAR", 
-	"PCD_RSMAPVAR", 
-	"PCD_RSWORLDVAR", 
-	"PCD_RSGLOBALVAR", 
-	"PCD_RSMAPARRAY", 
-	"PCD_RSWORLDARRAY", 
-	"PCD_RSGLOBALARRAY", 
+	"PCD_RSSCRIPTVAR",
+	"PCD_RSMAPVAR",
+	"PCD_RSWORLDVAR",
+	"PCD_RSGLOBALVAR",
+	"PCD_RSMAPARRAY",
+	"PCD_RSWORLDARRAY",
+	"PCD_RSGLOBALARRAY",
 	//[MW] end my p-codes
 	"PCD_GETPLAYERINFO",
 	"PCD_CHANGELEVEL",
@@ -477,6 +481,17 @@ static char *PCDNames[PCODE_COMMAND_COUNT] =
 	"PCD_SCRIPTWAITNAMED",
 	"PCD_TRANSLATIONRANGE3",
 };
+#endif
+#pragma endregion
+static void pCode_CommandLog(int location, int pCode, string prefix)
+{
+#if _DEBUG
+	MS_Message(MSG_DEBUG, prefix + "> %06d = #%d:%s\n", location, pCode, pCode_Names[pCode]);
+#else
+	MS_Message(MSG_DEBUG, prefix + "> %06d = #%d\n", location, pCode);
+#endif
+}
+
 
 // CODE --------------------------------------------------------------------
 
@@ -486,24 +501,21 @@ static char *PCDNames[PCODE_COMMAND_COUNT] =
 //
 //==========================================================================
 
-void PC_OpenObject(char *name, size_t size, int flags)
+void PC_OpenObject(string name, size_t size, int flags)
 {
-	if(ObjectOpened == YES)
+	if(ObjectOpened)
 	{
 		PC_CloseObject();
 	}
-	if(strlen(name) >= MAX_FILE_NAME_LENGTH)
+	if(name.length() >= MAX_FILE_NAME_LENGTH)
 	{
-		ERR_Exit(ERR_FILE_NAME_TOO_LONG, NO, name);
+		ERR_Exit(ERR_FILE_NAME_TOO_LONG, false, name);
 	}
-	strcpy(ObjectName, name);
-	pc_Buffer = MS_Alloc(size, ERR_ALLOC_PCODE_BUFFER);
-	pc_BufferPtr = pc_Buffer;
-	pc_Address = 0;
+	ObjectName = name;
+	pCode_Buffer.setsize(size);
 	ObjectFlags = flags;
-	BufferSize = size;
 	pc_ScriptCount = 0;
-	ObjectOpened = YES;
+	ObjectOpened = true;
 	PC_AppendString("ACS");
 	PC_SkipInt(); // Script table offset
 }
@@ -514,7 +526,7 @@ void PC_OpenObject(char *name, size_t size, int flags)
 //
 //==========================================================================
 
-void PC_CloseObject(void)
+void PC_CloseObject()
 {
 	MS_Message(MSG_DEBUG, "---- PC_CloseObject ----\n");
 	while (pc_Address & 3)
@@ -523,11 +535,11 @@ void PC_CloseObject(void)
 	}
 	if(!pc_NoShrink || (NumLanguages > 1) || (NumStringLists > 0) ||
 		(pc_FunctionCount > 0) || MapVariablesInit || NumArrays != 0 ||
-		pc_EncryptStrings || NumImports != 0 || HaveExtendedScripts)
+		pc_EncryptStrings || Imports || HaveExtendedScripts)
 	{
 		if(pc_EnforceHexen)
 		{
-			ERR_Exit(ERR_NOT_HEXEN, NO);
+			ERR_Exit(ERR_NOT_HEXEN, false);
 		}
 		if(pc_WarnNotHexen)
 		{
@@ -540,9 +552,9 @@ void PC_CloseObject(void)
 	{
 		CloseOld();
 	}
-	if(MS_SaveFile(ObjectName, pc_Buffer, pc_Address) == FALSE)
+	if(MS_SaveFile(ObjectName, pc_Buffer, pc_Address) == false)
 	{
-		ERR_Exit(ERR_SAVE_OBJECT_FAILED, NO);
+		ERR_Exit(ERR_SAVE_OBJECT_FAILED, false);
 	}
 }
 
@@ -552,21 +564,21 @@ void PC_CloseObject(void)
 //
 //==========================================================================
 
-static void CloseOld(void)
+static void CloseOld()
 {
 	int i;
 
 	STR_WriteStrings();
-	PC_WriteInt((U_INT)pc_Address, 4);
-	PC_AppendInt((U_INT)pc_ScriptCount);
+	PC_WriteInt(pc_Address, 4);
+	PC_AppendInt(pc_ScriptCount);
 	for(i = 0; i < pc_ScriptCount; ++i)
 	{
 		scriptInfo_t *info = &ScriptInfo[i];
 		MS_Message(MSG_DEBUG, "Script %d, address = %d, arg count = %d\n",
 			info->number, info->address, info->argCount);
-		PC_AppendInt((U_INT)(info->number + info->type * 1000));
-		PC_AppendInt((U_INT)info->address);
-		PC_AppendInt((U_INT)info->argCount);
+		PC_AppendInt((info->number + info->type * 1000));
+		PC_AppendInt(info->address);
+		PC_AppendInt(info->argCount);
 	}
 	STR_WriteList();
 }
@@ -585,7 +597,7 @@ static void CloseOld(void)
 //
 //==========================================================================
 
-static void CloseNew(void)
+static void CloseNew()
 {
 	int i, j, count;
 	int chunkStart;
@@ -619,7 +631,7 @@ static void CloseNew(void)
 				PC_AppendWord(info->number);
 				PC_AppendByte(info->type);
 				PC_AppendByte(info->argCount);
-				PC_AppendInt((U_INT)info->address);
+				PC_AppendInt(info->address);
 			}
 		}
 	}
@@ -673,7 +685,7 @@ static void CloseNew(void)
 	}
 
 	// Write the string table for named scripts.
-	STR_WriteListChunk(STRLIST_NAMEDSCRIPTS, MAKE4CC('S','N','A','M'), NO);
+	STR_WriteListChunk(STRLIST_NAMEDSCRIPTS, MAKE4CC('S', 'N', 'A', 'M'), false);
 
 	if(pc_FunctionCount > 0)
 	{
@@ -687,11 +699,11 @@ static void CloseNew(void)
 				info->address, info->argCount, info->localCount);
 			PC_AppendByte(info->argCount);
 			PC_AppendByte(info->localCount);
-			PC_AppendByte((U_BYTE)(info->hasReturnValue?1:0));
+			PC_AppendByte((byte)(info->hasReturnValue?1:0));
 			PC_AppendByte(0);
-			PC_AppendInt((U_INT)info->address);
+			PC_AppendInt(info->address);
 		}
-		STR_WriteListChunk(STRLIST_FUNCTIONS, MAKE4CC('F','N','A','M'), NO);
+		STR_WriteListChunk(STRLIST_FUNCTIONS, MAKE4CC('F', 'N', 'A', 'M'), false);
 	}
 
 	if(NumLanguages > 1)
@@ -706,7 +718,7 @@ static void CloseNew(void)
 		STR_WriteChunk(0, pc_EncryptStrings);
 	}
 
-	STR_WriteListChunk(STRLIST_PICS, MAKE4CC('P','I','C','S'), NO);
+	STR_WriteListChunk(STRLIST_PICS, MAKE4CC('P', 'I', 'C', 'S'), false);
 	if(MapVariablesInit)
 	{
 		int j;
@@ -797,7 +809,7 @@ static void CloseNew(void)
 				STR_AppendToList(STRLIST_MAPVARS, NULL);
 			}
 		}
-		STR_WriteListChunk(STRLIST_MAPVARS, MAKE4CC('M','E','X','P'), NO);
+		STR_WriteListChunk(STRLIST_MAPVARS, MAKE4CC('M', 'E', 'X', 'P'), false);
 	}
 
 	// Record the names of imported map variables
@@ -855,11 +867,11 @@ static void CloseNew(void)
 
 					PC_Append("AINI", 4);
 					PC_AppendInt(ArraySizes[i]*4+4);
-					PC_AppendInt((U_INT)i);
+					PC_AppendInt(i);
 					MS_Message(MSG_DEBUG, "Writing array initializers for array %d (size %d)\n", i, ArraySizes[i]);
 					for(j = 0; j < ArraySizes[i]; ++j)
 					{
-						PC_AppendInt((U_INT)ArrayInits[i][j]);
+						PC_AppendInt(ArrayInits[i][j]);
 					}
 				}
 			}
@@ -917,7 +929,7 @@ static void CloseNew(void)
 		}
 	}
 
-	PC_AppendInt((U_INT)chunkStart);
+	PC_AppendInt(chunkStart);
 	if(pc_NoShrink)
 	{
 		PC_Append("ACSE", 4);
@@ -926,7 +938,7 @@ static void CloseNew(void)
 	{
 		PC_Append("ACSe", 4);
 	}
-	PC_WriteInt((U_INT)pc_Address, 4);
+	PC_WriteInt(pc_Address, 4);
 
 	// WadAuthor compatibility when creating a library is pointless, because
 	// that editor does not know anything about libraries and will never
@@ -948,14 +960,14 @@ static void CloseNew(void)
 //
 //==========================================================================
 
-static void CreateDummyScripts(void)
+static void CreateDummyScripts()
 {
 	int i;
 
 	MS_Message(MSG_DEBUG, "Creating dummy scripts to make WadAuthor happy.\n");
 	if(pc_Address%4 != 0)
 	{ // Need to align
-		U_INT pad = 0;
+		int pad = 0;
 		PC_Append((void *)&pad, 4-(pc_Address%4));
 	}
 	pc_DummyAddress = pc_Address;
@@ -981,7 +993,7 @@ static void CreateDummyScripts(void)
 //
 //==========================================================================
 
-static void RecordDummyScripts(void)
+static void RecordDummyScripts()
 {
 	int i, j, count;
 
@@ -992,7 +1004,7 @@ static void RecordDummyScripts(void)
 			++count;
 		}
 	}
-	PC_AppendInt((U_INT)count);
+	PC_AppendInt(count);
 	for(i = j = 0; i < pc_ScriptCount; ++i)
 	{
 		scriptInfo_t *info = &ScriptInfo[i];
@@ -1000,9 +1012,9 @@ static void RecordDummyScripts(void)
 		{
 			MS_Message(MSG_DEBUG, "Dummy script %d, address = %d, arg count = %d\n",
 				info->number, info->address, info->argCount);
-			PC_AppendInt((U_INT)info->number);
-			PC_AppendInt((U_INT)pc_DummyAddress + j*4);
-			PC_AppendInt((U_INT)info->argCount);
+			PC_AppendInt(info->number);
+			PC_AppendInt(pc_DummyAddress + j*4);
+			PC_AppendInt(info->argCount);
 			j++;
 		}
 	}
@@ -1014,12 +1026,12 @@ static void RecordDummyScripts(void)
 //
 //==========================================================================
 
-void GrowBuffer(void)
+void GrowBuffer()
 {
 	ptrdiff_t buffpos = pc_BufferPtr - pc_Buffer;
 
 	BufferSize *= 2;
-	pc_Buffer = MS_Realloc(pc_Buffer, BufferSize, ERR_PCODE_BUFFER_OVERFLOW);
+	grow(pc_Buffer, byte, BufferSize);
 	pc_BufferPtr = pc_Buffer + buffpos;
 }
 
@@ -1029,7 +1041,8 @@ void GrowBuffer(void)
 //
 //==========================================================================
 
-static void Append(void *buffer, size_t size)
+template <class type>
+static void Append(type *buffer, size_t size = sizeof(type))
 {
 	if (ImportMode != IMPORT_Importing)
 	{
@@ -1052,32 +1065,32 @@ void PC_Append(void *buffer, size_t size)
 	}
 }
 
-void PC_AppendByte(U_BYTE val)
+void PC_AppendByte(byte val)
 {
 	if (ImportMode != IMPORT_Importing)
 	{
 		MS_Message(MSG_DEBUG, "AB> %06d = %d\n", pc_Address, val);
-		Append(&val, sizeof(U_BYTE));
+		Append(&val);
 	}
 }
 
-void PC_AppendWord(U_WORD val)
+void PC_AppendWord(short val)
 {
 	if (ImportMode != IMPORT_Importing)
 	{
 		MS_Message(MSG_DEBUG, "AW> %06d = %d\n", pc_Address, val);
 		val = MS_LittleUWORD(val);
-		Append(&val, sizeof(U_WORD));
+		Append(&val);
 	}
 }
 
-void PC_AppendInt(U_INT val)
+void PC_AppendInt(int val)
 {
 	if (ImportMode != IMPORT_Importing)
 	{
 		MS_Message(MSG_DEBUG, "AL> %06d = %d\n", pc_Address, val);
 		val = MS_LittleUINT(val);
-		Append(&val, sizeof(U_INT));
+		Append(&val);
 	}
 }
 
@@ -1094,27 +1107,26 @@ void PC_AppendString(char *string)
 	}
 }
 
-void PC_AppendCmd(pcd_t command)
+void PC_AppendCmd(int command)
 {
-	boolean dupbyte = NO;
+	bool dupbyte = false;
 	if (ImportMode != IMPORT_Importing)
 	{
 		pc_LastAppendedCommand = command;
 		if (pc_NoShrink)
 		{
-			MS_Message(MSG_DEBUG, "AC> %06d = #%d:%s\n", pc_Address,
-				command, PCDNames[command]);
+			pCode_CommandLog(pc_Address, command);
 			command = MS_LittleUINT(command);
-			Append(&command, sizeof(U_INT));
+			Append(&command);
 		}
 		else
 		{
-			U_BYTE cmd;
+			byte cmd;
 			if (command == PCD_DUP && PushByteAddr)
 			{ // If the last instruction was PCD_PUSHBYTE, convert this PCD_DUP to a
 			  // duplicate PCD_PUSHBYTE, so it can be merged into a single instruction below.
 				command = PCD_PUSHBYTE;
-				dupbyte = YES;
+				dupbyte = true;
 				MS_Message(MSG_DEBUG, "AC> PCD_DUP changed to PCD_PUSHBYTE\n");
 			}
 			else if (command != PCD_PUSHBYTE && PushByteAddr)
@@ -1124,7 +1136,7 @@ void PC_AppendCmd(pcd_t command)
 
 				if (runlen > 5)
 				{
-					pc_Buffer[PushByteAddr] = PCD_PUSHBYTES;
+					pc_Buffer[PushByteAddr] = (byte)PCD_PUSHBYTES;
 					for (i = 0; i < runlen; i++)
 					{
 						pc_Buffer[PushByteAddr+i+2] = pc_Buffer[PushByteAddr+i*2+1];
@@ -1153,13 +1165,12 @@ void PC_AppendCmd(pcd_t command)
 			{ // Remember the first PCD_PUSHBYTE, in case there are more
 				PushByteAddr = pc_Address;
 			}
-			MS_Message(MSG_DEBUG, "AC> %06d = #%d:%s\n", pc_Address,
-				command, PCDNames[command]);
+			pCode_CommandLog(pc_Address, command, "AC");
 
 			if (command < 256-16)
 			{
 				cmd = command;
-				Append(&cmd, sizeof(U_BYTE));
+				Append(&cmd);
 			}
 			else
 			{
@@ -1167,9 +1178,9 @@ void PC_AppendCmd(pcd_t command)
 				// range select a set of pcodes, and the next byte is
 				// the pcode in that set.
 				cmd = ((command - (256-16)) >> 8) + (256-16);
-				Append(&cmd, sizeof(U_BYTE));
+				Append(&cmd);
 				cmd = (command - (256-16)) & 255;
-				Append(&cmd, sizeof(U_BYTE));
+				Append(&cmd);
 			}
 			if (dupbyte)
 			{
@@ -1185,7 +1196,7 @@ void PC_AppendCmd(pcd_t command)
 //
 //==========================================================================
 
-void PC_AppendShrink(U_BYTE val)
+void PC_AppendShrink(byte val)
 {
 	if(pc_NoShrink)
 	{
@@ -1203,7 +1214,7 @@ void PC_AppendShrink(U_BYTE val)
 //
 //==========================================================================
 
-void PC_AppendPushVal(U_INT val)
+void PC_AppendPushVal(int val)
 {
 	if(pc_NoShrink || val > 255)
 	{
@@ -1213,7 +1224,7 @@ void PC_AppendPushVal(U_INT val)
 	else
 	{
 		PC_AppendCmd(PCD_PUSHBYTE);
-		PC_AppendByte((U_BYTE)val);
+		PC_AppendByte((byte)val);
 	}
 }
 
@@ -1223,7 +1234,14 @@ void PC_AppendPushVal(U_INT val)
 //
 //==========================================================================
 
-static void Write(void *buffer, size_t size, int address)
+template <typename T>
+inline void write(std::ostream &stream, T const &data)
+{
+	stream.write((char const *)&data, sizeof(data));
+}
+
+template <class type>
+static void Write(type *buffer, int address, int size = sizeof(type))
 {
 	if (ImportMode != IMPORT_Importing)
 	{
@@ -1231,44 +1249,35 @@ static void Write(void *buffer, size_t size, int address)
 		{
 			GrowBuffer();
 		}
-		memcpy(pc_Buffer+address, buffer, size);
+		copy(*(&pc_Buffer+address), buffer, size);
 	}
 }
 
-void PC_Write(void *buffer, size_t size, int address)
+void PC_Write(void *buffer, int address, size_t size)
 {
 	if (ImportMode != IMPORT_Importing)
 	{
 		MS_Message(MSG_DEBUG, "WD> %06d = (%d bytes)\n", address, size);
-		Write(buffer, size, address);
+		Write(buffer, address, size);
 	}
 }
 
-void PC_WriteByte(U_BYTE val, int address)
+void PC_WriteByte(byte val, int address)
 {
 	if (ImportMode != IMPORT_Importing)
 	{
 		MS_Message(MSG_DEBUG, "WB> %06d = %d\n", address, val);
-		Write(&val, sizeof(U_BYTE), address);
+		Write(&val, address);
 	}
 }
 
-/*
-void PC_WriteWord(U_WORD val, int address)
-{
-	MS_Message(MSG_DEBUG, "WW> %06d = %d\n", address, val);
-	val = MS_LittleUWORD(val);
-	Write(&val, sizeof(U_WORD), address);
-}
-*/
-
-void PC_WriteInt(U_INT val, int address)
+void PC_WriteInt(int val, int address)
 {
 	if (ImportMode != IMPORT_Importing)
 	{
 		MS_Message(MSG_DEBUG, "WL> %06d = %d\n", address, val);
 		val = MS_LittleUINT(val);
-		Write(&val, sizeof(U_INT), address);
+		Write(&val, address);
 	}
 	pc_LastAppendedCommand = PCD_NOP;
 }
@@ -1282,18 +1291,17 @@ void PC_WriteString(char *string, int address)
 		length = strlen(string)+1;
 		MS_Message(MSG_DEBUG, "WS> %06d = \"%s\" (%d bytes)\n",
 			address, string, length);
-		Write(string, length, address);
+		Write(string, address, length);
 	}
 }
 
-void PC_WriteCmd(pcd_t command, int address)
+void PC_WriteCmd(int command, int address)
 {
 	if (ImportMode != IMPORT_Importing)
 	{
-		MS_Message(MSG_DEBUG, "WC> %06d = #%d:%s\n", address,
-			command, PCDNames[command]);
+		pCode_CommandLog(address, command, "WC");
 		command = MS_LittleUINT(command);
-		Write(&command, sizeof(U_INT), address);
+		Write(&command, address);
 	}
 }
 
@@ -1316,6 +1324,12 @@ static void Skip(size_t size)
 	}
 }
 
+template <class type>
+void Skip(type obj = new type)
+{
+	Skip(sizeof(obj));
+}
+
 void PC_Skip(size_t size)
 {
 	if (ImportMode != IMPORT_Importing)
@@ -1325,28 +1339,12 @@ void PC_Skip(size_t size)
 	}
 }
 
-/*
-void PC_SkipByte(void)
-{
-	MS_Message(MSG_DEBUG, "SB> %06d (skip byte)\n", pc_Address);
-	Skip(sizeof(U_BYTE));
-}
-*/
-
-/*
-void PC_SkipWord(void)
-{
-	MS_Message(MSG_DEBUG, "SW> %06d (skip word)\n", pc_Address);
-	Skip(sizeof(U_WORD));
-}
-*/
-
-void PC_SkipInt(void)
+void PC_SkipInt()
 {
 	if (ImportMode != IMPORT_Importing)
 	{
 		MS_Message(MSG_DEBUG, "SL> %06d (skip int)\n", pc_Address);
-		Skip(sizeof(U_INT));
+		Skip<int>();
 	}
 }
 
@@ -1362,10 +1360,10 @@ void PC_PutMapVariable(int index, int value)
 	{
 		MapVariables[index].isString = pa_ConstExprIsString;
 		MapVariables[index].initializer = value;
-		MapVariablesInit = YES;
+		MapVariablesInit = true;
 		if(pc_EnforceHexen)
 		{
-			ERR_Error(ERR_HEXEN_COMPAT, YES);
+			ERR_Error(ERR_HEXEN_COMPAT, true);
 		}
 	}
 }
@@ -1398,10 +1396,10 @@ void PC_AddScript(int number, int type, int flags, int argCount)
 
 	if (flags != 0 || number < 0 || number >= 1000)
 	{
-		HaveExtendedScripts = YES;
+		HaveExtendedScripts = true;
 		if(pc_EnforceHexen)
 		{
-			ERR_Error(ERR_HEXEN_COMPAT, YES);
+			ERR_Error(ERR_HEXEN_COMPAT, true);
 		}
 	}
 
@@ -1409,12 +1407,12 @@ void PC_AddScript(int number, int type, int flags, int argCount)
 	{
 		if (ScriptInfo[i].number == number)
 		{
-			ERR_Error(ERR_SCRIPT_ALREADY_DEFINED, YES);
+			ERR_Error(ERR_SCRIPT_ALREADY_DEFINED, true);
 		}
 	}
 	if(pc_ScriptCount == MAX_SCRIPT_COUNT)
 	{
-		ERR_Error(ERR_TOO_MANY_SCRIPTS, YES);
+		ERR_Error(ERR_TOO_MANY_SCRIPTS, true);
 	}
 	else
 	{
@@ -1425,7 +1423,7 @@ void PC_AddScript(int number, int type, int flags, int argCount)
 		script->argCount = argCount;
 		script->flags = flags;
 		script->srcLine = tk_Line;
-		script->imported = (ImportMode == IMPORT_Importing) ? YES : NO;
+		script->imported = (ImportMode == IMPORT_Importing) ? true : false;
 		pc_ScriptCount++;
 	}
 }
@@ -1465,17 +1463,17 @@ void PC_AddFunction(symbolNode_t *sym)
 
 	if(pc_FunctionCount == MAX_FUNCTION_COUNT)
 	{
-		ERR_Error(ERR_TOO_MANY_FUNCTIONS, YES, NULL);
+		ERR_Error(ERR_TOO_MANY_FUNCTIONS, true, NULL);
 	}
 	else if(pc_EnforceHexen)
 	{
-		ERR_Error(ERR_HEXEN_COMPAT, YES);
+		ERR_Error(ERR_HEXEN_COMPAT, true);
 	}
 
 	function = &FunctionInfo[pc_FunctionCount];
-	function->hasReturnValue = (U_BYTE)sym->info.scriptFunc.hasReturnValue;
-	function->argCount = (U_BYTE)sym->info.scriptFunc.argCount;
-	function->localCount = (U_BYTE)sym->info.scriptFunc.varCount;
+	function->hasReturnValue = (byte)sym->info.scriptFunc.hasReturnValue;
+	function->argCount = (byte)sym->info.scriptFunc.argCount;
+	function->localCount = (byte)sym->info.scriptFunc.varCount;
 	function->name = STR_AppendToList (STRLIST_FUNCTIONS, sym->name);
 	function->address = sym->info.scriptFunc.address;
 	sym->info.scriptFunc.funcNumber = pc_FunctionCount;
@@ -1494,7 +1492,7 @@ void PC_AddArray(int index, int size)
 	ArraySizes[index] = size;
 	if(pc_EnforceHexen)
 	{
-		ERR_Error(ERR_HEXEN_COMPAT, YES);
+		ERR_Error(ERR_HEXEN_COMPAT, true);
 	}
 }
 
@@ -1504,7 +1502,7 @@ void PC_AddArray(int index, int size)
 //
 //==========================================================================
 
-void PC_InitArray(int index, int *entries, boolean hasStrings)
+void PC_InitArray(int index, int *entries, bool hasStrings)
 {
 	int i;
 
@@ -1519,8 +1517,8 @@ void PC_InitArray(int index, int *entries, boolean hasStrings)
 	}
 	if(i < ArraySizes[index])
 	{
-		ArrayInits[index] = MS_Alloc(ArraySizes[index]*sizeof(int), ERR_OUT_OF_MEMORY);
-		memcpy(ArrayInits[index], entries, ArraySizes[index]*sizeof(int));
+		ArrayInits[index] = new int[ArraySizes[index]];
+		ArrayInits[index] = entries; //ArraySizes[index]
 	}
 	ArrayOfStrings[index] = hasStrings;
 }
@@ -1535,12 +1533,12 @@ int PC_AddImport(char *name)
 {
 	if (NumImports >= MAX_IMPORTS)
 	{
-		ERR_Exit(ERR_TOO_MANY_IMPORTS, YES);
+		ERR_Exit(ERR_TOO_MANY_IMPORTS, true);
 	}
 	else if(pc_EnforceHexen)
 	{
-		ERR_Error(ERR_HEXEN_COMPAT, YES);
+		ERR_Error(ERR_HEXEN_COMPAT, true);
 	}
-	strncpy(Imports[NumImports], name, 8);
+	strcpy(Imports[NumImports], name);
 	return NumImports++;
 }

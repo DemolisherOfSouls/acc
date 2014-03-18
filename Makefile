@@ -54,7 +54,7 @@ SRCS = \
 ACS = \
 	zcommon.acs	\
 	zdefs.acs	\
-	zspecial.acs \
+	zspecial.acs	\
 	zwvars.acs
 
 $(EXENAME) : $(OBJS)

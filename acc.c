@@ -11,6 +11,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <new>
 #include "common.h"
 #include "token.h"
 #include "error.h"
@@ -22,7 +23,7 @@
 
 // MACROS ------------------------------------------------------------------
 
-#define VERSION_TEXT "1.54"
+#define VERSION_TEXT "1.6"
 #define COPYRIGHT_YEARS_TEXT "1995"
 
 // TYPES -------------------------------------------------------------------
@@ -33,19 +34,19 @@
 
 // PRIVATE FUNCTION PROTOTYPES ---------------------------------------------
 
-static void Init(void);
-static void DisplayBanner(void);
-static void DisplayUsage(void);
+static void Init();
+static void DisplayBanner();
+static void DisplayUsage();
 static void OpenDebugFile(char *name);
-static void ProcessArgs(void);
+static void ProcessArgs();
 
 // EXTERNAL DATA DECLARATIONS ----------------------------------------------
 
 // PUBLIC DATA DEFINITIONS -------------------------------------------------
 
-boolean acs_BigEndianHost;
-boolean acs_VerboseMode;
-boolean acs_DebugMode;
+bool acs_BigEndianHost;
+bool acs_VerboseMode;
+bool acs_DebugMode;
 FILE *acs_DebugFile;
 char acs_SourceFileName[MAX_FILE_NAME_LENGTH];
 
@@ -65,6 +66,8 @@ static char ObjectFileName[MAX_FILE_NAME_LENGTH];
 
 int main(int argc, char **argv)
 {
+	std::set_new_handler(ERR_BadAlloc);
+
 	int i;
 
 	ArgCount = argc;
@@ -115,7 +118,7 @@ int main(int argc, char **argv)
 //
 //==========================================================================
 
-static void DisplayBanner(void)
+static void DisplayBanner()
 {
 	fprintf(stderr, "\nOriginal ACC Version 1.10 by Ben Gokey\n");
 	fprintf(stderr, "Copyright (c) "COPYRIGHT_YEARS_TEXT
@@ -128,6 +131,7 @@ static void DisplayBanner(void)
 	fprintf(stderr, "Some additions by Michael \"Necromage\" Weber\n");
 	fprintf(stderr, "Error reporting improvements and limit expansion by Ty Halderman\n");
 	fprintf(stderr, "Include paths added by Pascal vd Heiden\n");
+	fprintf(stderr, "Additional operators, structs, and methods added by Ryan \"DemolisherOfSouls\" Taylor");
 }
 
 //==========================================================================
@@ -136,16 +140,16 @@ static void DisplayBanner(void)
 //
 //==========================================================================
 
-static void Init(void)
+static void Init()
 {
 	short endianTest = 1;
 
 	if (*(char *)&endianTest)
-		acs_BigEndianHost = NO;
+		acs_BigEndianHost = false;
 	else
-		acs_BigEndianHost = YES;
-	acs_VerboseMode = YES;
-	acs_DebugMode = NO;
+		acs_BigEndianHost = true;
+	acs_VerboseMode = true;
+	acs_DebugMode = false;
 	acs_DebugFile = NULL;
 	TK_Init();
 	SY_Init();
@@ -164,7 +168,7 @@ static void Init(void)
 //
 //==========================================================================
 
-static void ProcessArgs(void)
+static void ProcessArgs()
 {
 	int i = 1;
 	int count = 0;
@@ -194,8 +198,8 @@ static void ProcessArgs(void)
 					break;
 					
 				case 'D':
-					acs_DebugMode = YES;
-					acs_VerboseMode = YES;
+					acs_DebugMode = true;
+					acs_VerboseMode = true;
 					if(*text != 0)
 					{
 						OpenDebugFile(text);
@@ -203,8 +207,8 @@ static void ProcessArgs(void)
 					break;
 					
 				case 'H':
-					pc_NoShrink = TRUE;
-					pc_HexenCase = TRUE;
+					pc_NoShrink = true;
+					pc_HexenCase = true;
 					pc_EnforceHexen = toupper(*text) != 'H';
 					pc_WarnNotHexen = toupper(*text) == 'H';
 					break;
@@ -265,7 +269,7 @@ static void ProcessArgs(void)
 //
 //==========================================================================
 
-static void DisplayUsage(void)
+static void DisplayUsage()
 {
 	puts("\nUsage: ACC [options] source[.acs] [object[.o]]\n");
 	puts("-i [path]  Add include path to find include files");
@@ -285,7 +289,7 @@ static void OpenDebugFile(char *name)
 {
 	if((acs_DebugFile = fopen(name, "w")) == NULL)
 	{
-		ERR_Exit(ERR_CANT_OPEN_DBGFILE, NO, "File: \"%s\".", name);
+		ERR_Exit(ERR_CANT_OPEN_DBGFILE, false, "File: \"%s\".", name);
 	}
 }
 
@@ -296,7 +300,7 @@ static void OpenDebugFile(char *name)
 //==========================================================================
 
 /*
-static boolean OptionExists(char *name)
+static bool OptionExists(char *name)
 {
 	int i;
 	char *arg;
@@ -309,10 +313,10 @@ static boolean OptionExists(char *name)
 			arg++;
 			if(MS_StrCmp(name, arg) == 0)
 			{
-				return YES;
+				return true;
 			}
 		}
 	}
-	return NO;
+	return false;
 }
 */

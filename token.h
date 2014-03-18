@@ -5,8 +5,7 @@
 //**
 //**************************************************************************
 
-#ifndef __TOKEN_H__
-#define __TOKEN_H__
+#pragma once
 
 // HEADER FILES ------------------------------------------------------------
 
@@ -17,7 +16,7 @@
 
 // TYPES -------------------------------------------------------------------
 
-typedef enum
+enum tokenType_t : int
 {
 	TK_NONE,
 	TK_EOF,
@@ -131,41 +130,56 @@ typedef enum
 	TK_RSASSIGN,		// '>>='
 	TK_STRPARAM_EVAL,	// 'strparam'
 	TK_STRCPY,          // 'strcpy'
-} tokenType_t;
+	// [JRT] New for ACC++
+	TK_TID,				// 'tid'
+	TK_FIXED,			// 'fixed'
+	TK_ACTOR,			// 'actor'
+	TK_NEW,				// 'new'
+	TK_STRUCT,			// 'struct'
+	TK_METHOD,			// 'method'
+	TK_LOCAL,			// 'local'
+	TK_OVERRIDES,		// 'overrides'
+	TK_CLASS,			// 'class'
+	TK_SOUND,			// 'sound'
+	TK_IMAGE,			// 'image'
+	TK_POINTERTO,		// '->'
+	//TK_STATIC,			// 'static'
+	TK_MUSIC,			// 'music'
+	TK_DELETE,			// 'delete'
+	TK_QSTART,			// '?'
+};
 
 // PUBLIC FUNCTION PROTOTYPES ----------------------------------------------
 
-void TK_Init(void);
-void TK_OpenSource(char *fileName);
-void TK_Include(char *fileName);
-void TK_Import(char *fileName, enum ImportModes prevMode);
-void TK_CloseSource(void);
-int TK_GetDepth(void);
-tokenType_t TK_NextToken(void);
-int TK_NextCharacter(void);
-boolean TK_NextTokenMustBe(tokenType_t token, error_t error);
-boolean TK_TokenMustBe(tokenType_t token, error_t error);
-boolean TK_Member(tokenType_t *list);
-void TK_Undo(void);
-void TK_SkipLine(void);
-void TK_SkipPast(tokenType_t token);
-void TK_SkipTo(tokenType_t token);
-void TK_AddIncludePath(char *sourceName);
-void TK_AddProgramIncludePath(char *argv0);
+void TK_Init();
+void TK_OpenSource(string fileName);
+void TK_Include(string fileName);
+void TK_Import(string fileName, enum ImportModes prevMode);
+void TK_CloseSource();
+int TK_GetDepth();
+tokenType_t TK_NextToken();
+int TK_NextCharacter();
+bool TK_NextTokenMustBe(int token, int error);
+bool TK_TokenMustBe(int token, int error);
+bool TK_Member(int *list);
+void TK_Undo();
+void TK_SkipLine();
+void TK_SkipPast(int token);
+void TK_SkipTo(int token);
+void TK_AddIncludePath(string sourceName);
+void TK_AddProgramIncludePath(string argv0);
 
 // PUBLIC DATA DECLARATIONS ------------------------------------------------
 
 extern tokenType_t tk_Token;
 extern int tk_Line;
 extern int tk_Number;
-extern char *tk_String;
+extern string tk_String;
 extern int tk_SpecialValue;
 extern int tk_SpecialArgCount;
-extern char *tk_SourceName;
+extern string tk_SourceName;
 extern int tk_IncludedLines;
-extern boolean forSemicolonHack;
-extern char MasterSourceLine[];  // master line - Ty 07jan2000
+extern bool forSemicolonHack;
+extern string MasterSourceLine;  // master line - Ty 07jan2000
 extern int MasterSourcePos;      // master position - Ty 07jan2000
-extern boolean ClearMasterSourceLine; // ready for new line - Ty 07jan2000
-
-#endif
+extern bool ClearMasterSourceLine; // ready for new line - Ty 07jan2000

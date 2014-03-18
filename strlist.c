@@ -46,7 +46,7 @@ typedef struct
 static int STR_PutStringInSomeList(stringList_t *list, int index, char *name);
 static int STR_FindInSomeList(stringList_t *list, char *name);
 static int STR_FindInSomeListInsensitive(stringList_t *list, char *name);
-static void DumpStrings(stringList_t *list, int lenadr, boolean quad, boolean crypt);
+static void DumpStrings(stringList_t *list, int lenadr, bool quad, bool crypt);
 static void Encrypt(void *data, int key, int len);
 
 // EXTERNAL DATA DECLARATIONS ----------------------------------------------
@@ -68,7 +68,7 @@ static stringList_t *StringLists[NUM_STRLISTS];
 //
 //==========================================================================
 
-void STR_Init(void)
+void STR_Init()
 {
 	NumLanguages = NumStringLists = 0;
 	STR_FindLanguage(NULL);	// Default language is always number 0
@@ -104,7 +104,7 @@ int STR_FindLanguage(char *name)
 	}
 	if(i == NumLanguages)
 	{
-		LanguageInfo[i] = MS_Alloc(sizeof(languageInfo_t), ERR_OUT_OF_MEMORY);
+		LanguageInfo[i] = new languageInfo_t;
 		memset(LanguageInfo[i]->name, 0, 4);
 		if(name != NULL)
 		{
@@ -114,7 +114,7 @@ int STR_FindLanguage(char *name)
 		NumLanguages++;
 		if(NumLanguages > 1 && pc_EnforceHexen)
 		{
-			ERR_Error(ERR_HEXEN_COMPAT, YES);
+			ERR_Error(ERR_HEXEN_COMPAT, true);
 		}
 	}
 	return i;
@@ -152,12 +152,12 @@ int STR_FindInList(int list, char *name)
 {
 	if (StringLists[list] == NULL)
 	{
-		StringLists[list] = MS_Alloc(sizeof(stringList_t), ERR_OUT_OF_MEMORY);
+		StringLists[list] = new stringList_t;
 		StringLists[list]->stringCount = 0;
 		NumStringLists++;
 		if(pc_EnforceHexen)
 		{
-			ERR_Error(ERR_HEXEN_COMPAT, YES);
+			ERR_Error(ERR_HEXEN_COMPAT, true);
 		}
 	}
 	return STR_FindInSomeList (StringLists[list], name);
@@ -194,12 +194,12 @@ int STR_FindInListInsensitive(int list, char *name)
 {
 	if (StringLists[list] == NULL)
 	{
-		StringLists[list] = MS_Alloc(sizeof(stringList_t), ERR_OUT_OF_MEMORY);
+		StringLists[list] = new stringList_t;
 		StringLists[list]->stringCount = 0;
 		NumStringLists++;
 		if(pc_EnforceHexen)
 		{
-			ERR_Error(ERR_HEXEN_COMPAT, YES);
+			ERR_Error(ERR_HEXEN_COMPAT, true);
 		}
 	}
 	return STR_FindInSomeListInsensitive (StringLists[list], name);
@@ -255,12 +255,12 @@ int STR_AppendToList(int list, char *name)
 {
 	if (StringLists[list] == NULL)
 	{
-		StringLists[list] = MS_Alloc(sizeof(stringList_t), ERR_OUT_OF_MEMORY);
+		StringLists[list] = new stringList_t;
 		StringLists[list]->stringCount = 0;
 		NumStringLists++;
 		if(pc_EnforceHexen)
 		{
-			ERR_Error(ERR_HEXEN_COMPAT, YES);
+			ERR_Error(ERR_HEXEN_COMPAT, true);
 		}
 	}
 	return STR_PutStringInSomeList(StringLists[list], StringLists[list]->stringCount, name);
@@ -278,7 +278,7 @@ static int STR_PutStringInSomeList(stringList_t *list, int index, char *name)
 
 	if(index >= MAX_STRINGS)
 	{
-		ERR_Error(ERR_TOO_MANY_STRINGS, YES, MAX_STRINGS);
+		ERR_Error(ERR_TOO_MANY_STRINGS, true, MAX_STRINGS);
 		return 0;
 	}
 	MS_Message(MSG_DEBUG, "Adding string %d:\n  \"%s\"\n",
@@ -297,7 +297,7 @@ static int STR_PutStringInSomeList(stringList_t *list, int index, char *name)
 	}
 	if(name != NULL)
 	{
-		list->strings[index].name = MS_Alloc(strlen(name)+1, ERR_OUT_OF_MEMORY);
+		list->strings[index].name = new char[strlen(name)+1];
 		strcpy(list->strings[index].name, name);
 	}
 	else
@@ -326,10 +326,10 @@ int STR_ListSize(int list)
 //
 //==========================================================================
 
-void STR_WriteStrings(void)
+void STR_WriteStrings()
 {
 	int i;
-	U_INT pad;
+	int pad;
 
 	MS_Message(MSG_DEBUG, "---- STR_WriteStrings ----\n");
 	for(i = 0; i < LanguageInfo[0]->list.stringCount; i++)
@@ -350,15 +350,15 @@ void STR_WriteStrings(void)
 //
 //==========================================================================
 
-void STR_WriteList(void)
+void STR_WriteList()
 {
 	int i;
 
 	MS_Message(MSG_DEBUG, "---- STR_WriteList ----\n");
-	PC_AppendInt((U_INT)LanguageInfo[0]->list.stringCount);
+	PC_AppendInt(LanguageInfo[0]->list.stringCount);
 	for(i = 0; i < LanguageInfo[0]->list.stringCount; i++)
 	{
-		PC_AppendInt((U_INT)LanguageInfo[0]->list.strings[i].address);
+		PC_AppendInt(LanguageInfo[0]->list.strings[i].address);
 	}
 }
 
@@ -368,7 +368,7 @@ void STR_WriteList(void)
 //
 //==========================================================================
 
-void STR_WriteChunk(int language, boolean encrypt)
+void STR_WriteChunk(int language, bool encrypt)
 {
 	languageInfo_t *lang = LanguageInfo[language];
 	int lenadr;
@@ -381,7 +381,7 @@ void STR_WriteChunk(int language, boolean encrypt)
 	PC_AppendInt(lang->list.stringCount);
 	PC_AppendInt(0);	// Used in-game for stringing lists together
 
-	DumpStrings (&lang->list, lenadr, NO, encrypt);
+	DumpStrings (&lang->list, lenadr, false, encrypt);
 }
 
 //==========================================================================
@@ -390,7 +390,7 @@ void STR_WriteChunk(int language, boolean encrypt)
 //
 //==========================================================================
 
-void STR_WriteListChunk(int list, int id, boolean quad)
+void STR_WriteListChunk(int list, int id, bool quad)
 {
 	int lenadr;
 
@@ -398,17 +398,17 @@ void STR_WriteListChunk(int list, int id, boolean quad)
 	{
 		MS_Message(MSG_DEBUG, "---- STR_WriteListChunk %d %c%c%c%c----\n", list,
 			id&255, (id>>8)&255, (id>>16)&255, (id>>24)&255);
-		PC_AppendInt((U_INT)id);
+		PC_AppendInt(id);
 		lenadr = pc_Address;
 		PC_SkipInt();
 		PC_AppendInt(StringLists[list]->stringCount);
 		if (quad && pc_Address%8 != 0)
 		{ // If writing quadword indices, align the indices to an
 		  // 8-byte boundary.
-			U_INT pad = 0;
+			int pad = 0;
 			PC_Append (&pad, 4);
 		}
-		DumpStrings(StringLists[list], lenadr, quad, NO);
+		DumpStrings(StringLists[list], lenadr, quad, false);
 	}
 }
 
@@ -418,7 +418,7 @@ void STR_WriteListChunk(int list, int id, boolean quad)
 //
 //==========================================================================
 
-static void DumpStrings(stringList_t *list, int lenadr, boolean quad, boolean crypt)
+static void DumpStrings(stringList_t *list, int lenadr, bool quad, bool crypt)
 {
 	int i, ofs, startofs;
 
@@ -428,7 +428,7 @@ static void DumpStrings(stringList_t *list, int lenadr, boolean quad, boolean cr
 	{
 		if (list->strings[i].name != NULL)
 		{
-			PC_AppendInt((U_INT)ofs);
+			PC_AppendInt(ofs);
 			ofs += strlen(list->strings[i].name) + 1;
 		}
 		else
@@ -465,7 +465,7 @@ static void DumpStrings(stringList_t *list, int lenadr, boolean quad, boolean cr
 	}
 	if(pc_Address%4 != 0)
 	{ // Need to align
-		U_INT pad = 0;
+		int pad = 0;
 		PC_Append((void *)&pad, 4-(pc_Address%4));
 	}
 

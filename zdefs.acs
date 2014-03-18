@@ -11,8 +11,8 @@
 #define FALSE                   0
 #define ON                      1
 #define OFF                     0
-#define YES                     1
-#define NO                      0
+#define YES			1
+#define NO			0
 
 #define LINE_FRONT              0
 #define LINE_BACK               1
@@ -25,7 +25,7 @@
 #define TEXTURE_BOTTOM          2
 
 // same information as combinable bit flags
-#define TEXFLAG_TOP				1
+#define TEXFLAG_TOP			1
 #define TEXFLAG_MIDDLE			2
 #define TEXFLAG_BOTTOM			4
 #define TEXFLAG_ADDOFFSET		8
@@ -49,8 +49,8 @@
 #define BLOCK_NOTHING           0
 #define BLOCK_CREATURES         1
 #define BLOCK_EVERYTHING        2
-#define BLOCK_RAILING			3
-#define BLOCK_PLAYERS			4
+#define BLOCK_RAILING		3
+#define BLOCK_PLAYERS		4
 
 #define SCROLL                  0
 #define CARRY                   1
@@ -93,9 +93,9 @@
 
 // Player properties --------------------------------------------------------
 
-#define PROP_FROZEN                     0
-#define PROP_NOTARGET                   1
-#define PROP_INSTANTWEAPONSWITCH        2
+#define PROP_FROZEN			0
+#define PROP_NOTARGET			1
+#define PROP_INSTANTWEAPONSWITCH	2
 #define PROP_FLY			3
 #define PROP_TOTALLYFROZEN		4
 #define PROP_BUDDHA			16
@@ -116,9 +116,9 @@
 // These are the original inputs sent by the player.
 #define INPUT_OLDBUTTONS		0
 #define INPUT_BUTTONS			1
-#define INPUT_PITCH				2
-#define INPUT_YAW				3
-#define INPUT_ROLL				4
+#define INPUT_PITCH			2
+#define INPUT_YAW			3
+#define INPUT_ROLL			4
 #define INPUT_FORWARDMOVE		5
 #define INPUT_SIDEMOVE			6
 #define INPUT_UPMOVE			7
@@ -720,31 +720,31 @@
 
 // Actor pointer selectors
 
-#DEFINE	AAPTR_DEFAULT 0
-#DEFINE	AAPTR_NULL 0x1
-#DEFINE	AAPTR_TARGET 0x2
-#DEFINE	AAPTR_MASTER 0x4
-#DEFINE	AAPTR_TRACER 0x8
+#define	AAPTR_DEFAULT 0
+#define	AAPTR_NULL 0x1
+#define	AAPTR_TARGET 0x2
+#define	AAPTR_MASTER 0x4
+#define	AAPTR_TRACER 0x8
 
-#DEFINE	AAPTR_PLAYER_GETTARGET 0x10
-#DEFINE	AAPTR_PLAYER_GETCONVERSATION 0x20
+#define	AAPTR_PLAYER_GETTARGET 0x10
+#define	AAPTR_PLAYER_GETCONVERSATION 0x20
 
-#DEFINE	AAPTR_PLAYER1 0x40
-#DEFINE	AAPTR_PLAYER2 0x80
-#DEFINE	AAPTR_PLAYER3 0x100
-#DEFINE	AAPTR_PLAYER4 0x200
-#DEFINE	AAPTR_PLAYER5 0x400
-#DEFINE	AAPTR_PLAYER6 0x800
-#DEFINE	AAPTR_PLAYER7 0x1000
-#DEFINE	AAPTR_PLAYER8 0x2000
+#define	AAPTR_PLAYER1 0x40
+#define	AAPTR_PLAYER2 0x80
+#define	AAPTR_PLAYER3 0x100
+#define	AAPTR_PLAYER4 0x200
+#define	AAPTR_PLAYER5 0x400
+#define	AAPTR_PLAYER6 0x800
+#define	AAPTR_PLAYER7 0x1000
+#define	AAPTR_PLAYER8 0x2000
 
-#DEFINE AAPTR_FRIENDPLAYER 0x4000
+#define AAPTR_FRIENDPLAYER 0x4000
 
 // Actor pointer operation flags
 
-#DEFINE PTROP_UNSAFETARGET 1
-#DEFINE PTROP_UNSAFEMASTER 2
-#DEFINE PTROP_NOSAFEGUARDS PTROP_UNSAFETARGET |PTROP_UNSAFEMASTER 
+#define PTROP_UNSAFETARGET 1
+#define PTROP_UNSAFEMASTER 2
+#define PTROP_NOSAFEGUARDS PTROP_UNSAFETARGET |PTROP_UNSAFEMASTER 
 
 // Line activation flags
 

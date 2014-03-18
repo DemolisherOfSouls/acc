@@ -10,11 +10,7 @@
 #ifdef __NeXT__
 #include <libc.h>
 #else
-#include <fcntl.h>
-#include <stdlib.h>
-#ifndef unix
-#include <io.h>
-#endif
+#include <cstdlib>
 #endif
 #ifdef __GNUC__
 #include <sys/stat.h>
@@ -22,22 +18,18 @@
 #endif
 #ifdef _WIN32
 #include <sys/stat.h>
-#include <sys/types.h>
 #endif
-#include <stdio.h>
-#include <stddef.h>
-#include <stdarg.h>
-#include <string.h>
-#include <ctype.h>
+#include <iostream>
+#include <fstream>
+#include <string>
 #include "common.h"
 #include "misc.h"
 #include "error.h"
 
-// MACROS ------------------------------------------------------------------
+using std::fstream;
+using std::ios;
 
-#ifndef O_BINARY
-#define O_BINARY 0
-#endif
+// MACROS ------------------------------------------------------------------
 
 // TYPES -------------------------------------------------------------------
 
@@ -49,9 +41,9 @@
 
 // EXTERNAL DATA DECLARATIONS ----------------------------------------------
 
-extern boolean acs_BigEndianHost;
-extern boolean acs_VerboseMode;
-extern boolean acs_DebugMode;
+extern bool acs_BigEndianHost;
+extern bool acs_VerboseMode;
+extern bool acs_DebugMode;
 extern FILE *acs_DebugFile;
 
 // PUBLIC DATA DEFINITIONS -------------------------------------------------
@@ -62,71 +54,33 @@ extern FILE *acs_DebugFile;
 
 //==========================================================================
 //
-// MS_Alloc
-//
-//==========================================================================
-
-void *MS_Alloc(size_t size, error_t error)
-{
-	void *mem;
-
-	if((mem = malloc(size)) == NULL)
-	{
-		ERR_Exit(error, NO);
-	}
-	return mem;
-}
-
-//==========================================================================
-//
-// MS_Realloc
-//
-//==========================================================================
-
-void *MS_Realloc(void *base, size_t size, error_t error)
-{
-	void *mem;
-
-	if((mem = realloc(base, size)) == NULL)
-	{
-		ERR_Exit(error, NO);
-	}
-	return mem;
-}
-
-//==========================================================================
-//
 // MS_LittleUWORD
 //
-// Converts a host U_WORD (2 bytes) to little endian byte order.
+// Converts a host short (2 bytes) to little endian byte order.
 //
 //==========================================================================
-
-U_WORD MS_LittleUWORD(U_WORD val)
+short MS_LittleUWORD(short val)
 {
-	if(acs_BigEndianHost == NO)
-	{
+	if (!acs_BigEndianHost)
 		return val;
-	}
-	return ((val&255)<<8)+((val>>8)&255);
+	
+	return ((val&255u)<<8u)+((val>>8u)&255u);
 }
 
 //==========================================================================
 //
 // MS_LittleUINT
 //
-// Converts a host U_INT (4 bytes) to little endian byte order.
+// Converts a host int (4 bytes) to little endian byte order.
 //
 //==========================================================================
-
-U_INT MS_LittleUINT(U_INT val)
+int MS_LittleUINT(int val)
 {
-	if(acs_BigEndianHost == NO)
-	{
+	if (!acs_BigEndianHost)
 		return val;
-	}
-	return ((val&255)<<24)+(((val>>8)&255)<<16)+(((val>>16)&255)<<8)
-		+((val>>24)&255);
+	
+	return ((val&255u)<<24u)+(((val>>8u)&255u)<<16u)+(((val>>16u)&255u)<<8u)
+		+((val>>24u)&255u);
 }
 
 //==========================================================================
@@ -134,43 +88,34 @@ U_INT MS_LittleUINT(U_INT val)
 // MS_LoadFile
 //
 //==========================================================================
-
-int MS_LoadFile(char *name, char **buffer)
+vector<char> MS_LoadFile(string name)
 {
-	int handle;
-	int size;
-	int count;
-	char *addr;
+	if (name.length() >= MAX_FILE_NAME_LENGTH)
+		ERR_Exit(ERR_FILE_NAME_TOO_LONG, false, name);
+
+	fstream file = fstream(name, ios::binary | ios::in);
+
+	if (!file.is_open())
+		ERR_Exit(ERR_CANT_OPEN_FILE, false, name);
+
 	struct stat fileInfo;
+	int size = fileInfo.st_size;
 
-	if(strlen(name) >= MAX_FILE_NAME_LENGTH)
-	{
-		ERR_Exit(ERR_FILE_NAME_TOO_LONG, NO, name);
-	}
-	if((handle = open(name, O_RDONLY|O_BINARY, 0666)) == -1)
-	{
-		ERR_Exit(ERR_CANT_OPEN_FILE, NO, name);
-	}
-	if(fstat(handle, &fileInfo) == -1)
-	{
-		ERR_Exit(ERR_CANT_READ_FILE, NO, name);
-	}
-	size = fileInfo.st_size;
-	if((addr = malloc(size)) == NULL)
-	{
-		ERR_Exit(ERR_NONE, NO, "Couldn't malloc %d bytes for "
-			"file \"%s\".", size, name);
-	}
-	count = read(handle, addr, size);
-	close(handle);
-	if(count < size)
-	{
-		ERR_Exit(ERR_CANT_READ_FILE, NO, name);
-	}
-	*buffer = addr;
-	return size;
+	char* read = new char[size];
+	vector<char> data = vector<char>(size);
+
+	file.read(read, size);
+	
+	for (int c = 0; c < size; c++)
+		data.add(read[c]);
+
+	if (file.fail())
+		ERR_Exit(ERR_CANT_READ_FILE, false, name);
+
+	file.close();
+
+	return data;
 }
-
 
 //==========================================================================
 //
@@ -179,55 +124,34 @@ int MS_LoadFile(char *name, char **buffer)
 // Pascal 21/11/08
 //
 //==========================================================================
-boolean MS_FileExists(char *name)
+bool MS_FileExists(string name)
 {
 	struct stat info;
-	int ret = stat(name, &info);
+	int ret = stat(name.c_str(), &info);
+
 	return (ret == 0);
 }
-
 
 //==========================================================================
 //
 // MS_SaveFile
 //
 //==========================================================================
-
-boolean MS_SaveFile(char *name, void *buffer, int length)
+bool MS_SaveFile(string name, char *buffer, int length)
 {
-	int handle;
-	int count;
+	fstream file = fstream(name, ios::binary | ios::out | ios::trunc);
+	
+	if (!file.is_open())
+		return false;
 
-	handle = open(name, O_WRONLY|O_CREAT|O_TRUNC|O_BINARY, 0666);
-	if(handle == -1)
-	{
-		return FALSE;
-	}
-	count = write(handle, buffer, length);
-	close(handle);
-	if(count < length)
-	{
-		return FALSE;
-	}
-	return TRUE;
-}
+	file.write(buffer, length);
+	file.flush();
+	file.close();
+	
+	if(file.fail())
+		return false;
 
-//==========================================================================
-//
-// MS_StrCmp
-//
-//==========================================================================
-
-int MS_StrCmp(char *s1, char *s2)
-{
-	for(; tolower(*s1) == tolower(*s2); s1++, s2++)
-	{
-		if(*s1 == '\0')
-		{
-			return 0;
-		}
-	}
-	return tolower(*s1)-tolower(*s2);
+	return true;
 }
 
 //==========================================================================
@@ -235,37 +159,14 @@ int MS_StrCmp(char *s1, char *s2)
 // MS_StrLwr
 //
 //==========================================================================
-
-char *MS_StrLwr(char *string)
+string MS_StrLwr(string s)
 {
-	char *c;
-
-	c = string;
-	while(*c)
+	for (int c = 0; c < s.length(); c++)
 	{
-		*c = tolower(*c);
-		c++;
+		if (s[c] >= 'A' && s[c] <= 'Z')
+			s[c] += 32;
 	}
-	return string;
-}
-
-//==========================================================================
-//
-// MS_StrUpr
-//
-//==========================================================================
-
-char *MS_StrUpr(char *string)
-{
-	char *c;
-
-	c = string;
-	while(*c)
-	{
-		*c = toupper(*c);
-		c++;
-	}
-	return string;
+	return s;
 }
 
 //==========================================================================
@@ -273,20 +174,16 @@ char *MS_StrUpr(char *string)
 // MS_SuggestFileExt
 //
 //==========================================================================
-
-void MS_SuggestFileExt(char *base, char *extension)
+void MS_SuggestFileExt(string &base, string &extension)
 {
-	char *search;
-
-	search = base+strlen(base)-1;
-	while(!MS_IsDirectoryDelimiter(*search) && search != base)
+	int c = base.length(-1);
+	
+	while(!MS_IsDirectoryDelimiter(base[c]) && c > 0)
 	{
-		if(*search-- == '.')
-		{
+		if(base[c--] == '.')
 			return;
-		}
 	}
-	strcat(base, extension);
+	base.append(extension);
 }
 
 //==========================================================================
@@ -294,8 +191,7 @@ void MS_SuggestFileExt(char *base, char *extension)
 // MS_IsDirectoryDelimiter
 //
 //==========================================================================
-
-boolean MS_IsDirectoryDelimiter(char foo)
+bool MS_IsDirectoryDelimiter(char foo)
 {
 #if defined(_WIN32) || defined(__MSDOS__)
 	return foo == '/' || foo == '\\' || foo == ':';
@@ -304,26 +200,23 @@ boolean MS_IsDirectoryDelimiter(char foo)
 #endif
 }
 
-
 //==========================================================================
 //
 // MS_StripFileExt
 //
 //==========================================================================
-
-void MS_StripFileExt(char *name)
+void MS_StripFileExt(string &name)
 {
-	char *search;
+	int c = name.length(-1);
 
-	search = name+strlen(name)-1;
-	while(!MS_IsDirectoryDelimiter(*search) && search != name)
+	while(!MS_IsDirectoryDelimiter(name[c]) && c > 0)
 	{
-		if(*search == '.')
+		if(name[c] == '.')
 		{
-			*search = '\0';
+			name = name.substr(0, c + 1);
 			return;
 		}
-		search--;
+		c--;
 	}
 }
 
@@ -334,21 +227,19 @@ void MS_StripFileExt(char *name)
 // [RH] This now leaves the directory delimiter in place.
 //
 //==========================================================================
-
-boolean MS_StripFilename(char *name)
+bool MS_StripFilename(string &name)
 {
-	char *c;
+	int c = name.length();
 
-	c = name+strlen(name);
 	do
 	{
-		if(--c == name)
+		if(--c <= 0)
 		{ // No directory delimiter
-			return NO;
+			return false;
 		}
-	} while(!MS_IsDirectoryDelimiter(*c));
-	*(c+1) = 0;
-	return YES;
+	} while(!MS_IsDirectoryDelimiter(name[c]));
+	name = name.substr(0, c + 1);
+	return true;
 }
 
 //==========================================================================
@@ -356,32 +247,23 @@ boolean MS_StripFilename(char *name)
 // MS_Message
 //
 //==========================================================================
-
-void MS_Message(msg_t type, char *text, ...)
+void MS_Message(msg_t type, string text, ...)
 {
 	FILE *fp;
 	va_list argPtr;
 
-	if(type == MSG_VERBOSE && acs_VerboseMode == NO)
-	{
+	if (type == MSG_VERBOSE && !acs_VerboseMode)
 		return;
-	}
+	if (type == MSG_DEBUG && !acs_DebugMode)
+		return;
+
 	fp = stdout;
-	if(type == MSG_DEBUG)
-	{
-		if(acs_DebugMode == NO)
-		{
-			return;
-		}
-		if(acs_DebugFile != NULL)
-		{
-			fp = acs_DebugFile;
-		}
-	}
-	if(text)
+	if (type == MSG_DEBUG && acs_DebugFile)
+		fp = acs_DebugFile;
+	if(!text.empty())
 	{
 		va_start(argPtr, text);
-		vfprintf(fp, text, argPtr);
+		vfprintf(fp, text.c_str(), argPtr);
 		va_end(argPtr);
 	}
 }
@@ -393,15 +275,14 @@ void MS_Message(msg_t type, char *text, ...)
 // Pascal 30/11/08
 //
 //==========================================================================
-
-boolean MS_IsPathAbsolute(char *name)
+bool MS_IsPathAbsolute(string name)
 {
 #if defined(_WIN32) || defined(__MSDOS__)
 	// In Windows, the second character must be : if it is an
 	// absolute path (the first character indicates the drive)
 	// or the first character is either / or \ for absolute path
 	if((name[0] != '\0') && (name[1] == ':'))
-		return TRUE;
+		return true;
 #endif
 	// In Unix-land, the first character must be / for a root path
 	return MS_IsDirectoryDelimiter(name[0]);
