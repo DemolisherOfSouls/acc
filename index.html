@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="ACC++ : ACC++ is an ACS script compiler for use with ZDoom and Hexen. It extends ACC and implements C++ features, replacing C code." />
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>ACC++</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/DemolisherOfSouls/acc">View on GitHub</a>
+
+          <h1 id="project_title">ACC++</h1>
+          <h2 id="project_tagline">ACC++ is an ACS script compiler for use with ZDoom and Hexen. It extends ACC and implements C++ features, replacing C code.</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/DemolisherOfSouls/acc/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/DemolisherOfSouls/acc/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h3>
+<a name="what-is-acc" class="anchor" href="#what-is-acc"><span class="octicon octicon-link"></span></a>What is ACC++?</h3>
+
+<p>ACC++ adds many new features and error checking additions, including comprehensive warnings, custom data types, structs, and true preprocessor directives. It allows scripts to be written easier, and still generates ZDoom compatible byte code.</p>
+
+<h3>
+<a name="preprocessor-directives" class="anchor" href="#preprocessor-directives"><span class="octicon octicon-link"></span></a>Preprocessor Directives</h3>
+
+<p>You remember <code>#define</code>, and <code>#include</code>, but they were always executed in order alongside the actual code, making advanced tasks difficult. Now they are parsed before the code, allowing macros, and the ability to define properties within a library, and have them apply to the first line of code, no matter where they are placed, even if they are placed within a script:</p>
+
+<pre><code>#define DEF_VAL 3
+script 231 enter
+{
+#define MACRO int x = DEF_VAL
+    MACRO;
+    SetResultValue(x);
+}
+</code></pre>
+
+<h3>
+<a name="stricter-types" class="anchor" href="#stricter-types"><span class="octicon octicon-link"></span></a>Stricter Types</h3>
+
+<p>A bool is now just that. <em>A bool</em>. It has a value of 1 or 0. The compiler will throw warnings or errors depending on your command line parameters.</p>
+
+<pre><code>string s = "d";
+
+int i = s; //Warning: typedef 'string' assigned to typedef 'int'
+</code></pre>
+
+<h3>
+<a name="new-keywords" class="anchor" href="#new-keywords"><span class="octicon octicon-link"></span></a>New Keywords</h3>
+
+<p>A few new keywords have been defined, however this was a necessary evil. The new features <em>should not</em> impact most scripts, as the more advanced functions must be explicitly included, to avoid redefinition.
+Some new ones include <code>enum</code>, <code>struct</code>, and <code>typedef</code>.</p>
+
+<h3>
+<a name="requests" class="anchor" href="#requests"><span class="octicon octicon-link"></span></a>Requests</h3>
+
+<p>If there is a feature that you would like to see, simply open a request here, or post/pm me on the ZDoom forums. Email is acceptable, but only if the other options would cause an issue.</p>
+
+<h3>
+<a name="copyrights-and-credit" class="anchor" href="#copyrights-and-credit"><span class="octicon octicon-link"></span></a>Copyrights and Credit</h3>
+
+<p>I have not, and will not remove any of the contributors from the startup screen, and I did not create ACC. ACC is maintained by Randy Heit, and much of the code from ACC was left relatively intact.</p>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">ACC++ maintained by <a href="https://github.com/DemolisherOfSouls">DemolisherOfSouls</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
