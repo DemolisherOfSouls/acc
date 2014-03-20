@@ -28,6 +28,11 @@ static const enum
 
 // TYPES -------------------------------------------------------------------
 
+struct StructHandler : public vector<ACS_Struct>
+{
+
+};
+
 struct ScriptTypes
 {
 	const char *TypeName;
@@ -43,42 +48,6 @@ struct ScriptTypes
 //==========================================================================
 struct ACS_MapVar
 {
-	int index;
-	int type;
-	char *name;
-	bool isConstant;
-	bool isStatic;
-	bool isDeleted;
-	bool isImported;
-	bool isString;
-
-	//Every set of braces for every if statement, or script, or function
-	//has a unique depthindex, this is so you can call 'int c = 0' in a
-	//for loop, and then call 'int c = 3' after it, without a
-	//redefinition error.
-
-	int depthIndex;
-
-	static int nextIndex;
-	static int nextDepthIndex;
-
-	ACS_MapVar()
-	{
-		index = -1; // Undefined
-	}
-	ACS_MapVar(char *name, int type = VT_INT, int depthIndex = 0)
-	{
-		index = nextIndex++;
-		this->type = type;
-		this->name = name;
-		isConstant = false;
-		isStatic = false;
-		isDeleted = false;
-		isImported = false;
-		isString = false;
-
-		this->depthIndex = depthIndex;
-	}
 
 	bool Delete()
 	{
@@ -159,3 +128,7 @@ extern int pa_GlobalArrayCount;
 extern enum ImportModes ImportMode;
 extern bool ExporterFlagged;
 extern bool pa_ConstExprIsString;
+extern vector<int> ObjectTypes;
+extern vector<int> MapVars;
+extern vector<int> GlobalVars;
+extern vector<> 

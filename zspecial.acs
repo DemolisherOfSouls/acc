@@ -7,6 +7,7 @@
 special
 //	  1:Polyobj_StartLine
 	  2:Polyobj_RotateLeft(3),
+//	  2 : Polyobj_RotateLeft(int, int, int)
 	  3:Polyobj_RotateRight(3),
 	  4:Polyobj_Move(4),
 //	  5:Polyobj_ExplicitLine

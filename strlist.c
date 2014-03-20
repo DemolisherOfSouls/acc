@@ -19,23 +19,23 @@
 
 // TYPES -------------------------------------------------------------------
 
-typedef struct
+struct stringInfo_t
 {
-	char *name;
-	int address;
-} stringInfo_t;
+	string name;
+	int index;
+};
 
-typedef struct
+struct stringList_t
 {
 	int stringCount;
 	stringInfo_t strings[MAX_STRINGS];
-} stringList_t;
+};
 
-typedef struct
+struct languageInfo_t
 {
-	char name[4];
+	string name;
 	stringList_t list;
-} languageInfo_t;
+};
 
 // EXTERNAL FUNCTION PROTOTYPES --------------------------------------------
 
@@ -67,7 +67,6 @@ static stringList_t *StringLists[NUM_STRLISTS];
 // STR_Init
 //
 //==========================================================================
-
 void STR_Init()
 {
 	NumLanguages = NumStringLists = 0;
@@ -79,8 +78,7 @@ void STR_Init()
 // STR_FindLanguage
 //
 //==========================================================================
-
-int STR_FindLanguage(char *name)
+int STR_FindLanguage(string name)
 {
 	int i;
 
@@ -93,22 +91,16 @@ int STR_FindLanguage(char *name)
 		i = 0;
 	}
 	else
-	{
 		for(i = 0; i < NumLanguages; i++)
-		{
-			if (strcmp (name, LanguageInfo[i]->name) == 0)
-			{
+			if (name.compare(LanguageInfo[i]->name) == 0)
 				return i;
-			}
-		}
-	}
 	if(i == NumLanguages)
 	{
-		LanguageInfo[i] = new languageInfo_t;
+		LanguageInfo[i] = new languageInfo_t(name, stringList_t());
 		memset(LanguageInfo[i]->name, 0, 4);
 		if(name != NULL)
 		{
-			strncpy(LanguageInfo[i]->name, name, 3);
+			LanguageInfo[i]->name, name, 3);
 		}
 		LanguageInfo[i]->list.stringCount = 0;
 		NumLanguages++;

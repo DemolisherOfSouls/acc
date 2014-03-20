@@ -18,7 +18,19 @@
 
 // TYPES -------------------------------------------------------------------
 
-typedef struct
+struct ACSFunction
+{
+	string name;
+	int returnType;
+	vector<int> argTypes;
+
+	bool isUser;
+	bool placeInline;
+	bool latent;
+};
+
+//TODO: Replace this with above
+struct internFuncDef_t
 {
 	char *name;
 	pcd_t directCommand;
@@ -28,7 +40,7 @@ typedef struct
 	int outMask;
 	bool hasReturnValue;
 	bool latent;
-} internFuncDef_t;
+};
 
 // EXTERNAL FUNCTION PROTOTYPES --------------------------------------------
 

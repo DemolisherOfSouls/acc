@@ -168,6 +168,9 @@ int pa_GlobalArrayCount;
 enum ImportModes ImportMode = IMPORT_None;
 bool ExporterFlagged;
 bool pa_ConstExprIsString;
+vector<int> ObjectTypes;						//Contains all internal and user defined objects, structs and typedefs
+vector<ACS_Var> ObjectTypes;						//Contains all internal and user defined objects, structs and typedefs
+vector<int> ObjectTypes;						//Contains all internal and user defined objects, structs and typedefs
 
 // PRIVATE DATA DEFINITIONS ------------------------------------------------
 

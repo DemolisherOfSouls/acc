@@ -36,10 +36,64 @@ enum symbolType_t : int
 	SY_SCRIPTFUNC
 };
 
-struct symVar_t
+// Base Class for all temporary objects
+struct ACS_Var
 {
-	byte index;
-	int vartype;
+	string name;	// Name of object in source
+	int index;		// Index in main list
+	int type;		// Type of variable / Return type
+	int depth;		// Depth - 0 = map, 1 = innerscript, etc.
+
+	bool isDeleted;	// Has 'delete' been called on it?
+	bool isDeclared;// Is it declared yet?
+	bool isAssigned;// Has a value been assigned to it?
+
+	ACS_Var()
+	{
+		index = -1; // Undefined
+	}
+	ACS_Var(string name, int type, int depth)
+	{
+		index = nextVarIndex++;
+		this->type = type;
+		this->name = name;
+		isConstant = false;
+		isStatic = false;
+		isDeleted = false;
+		isImported = false;
+
+		this->depthIndex = depthIndex;
+	}
+};
+
+struct ACS_Const : public ACS_Var
+{
+	int value;
+};
+
+struct ACS_Special : public ACS_Const
+{
+	vector<int> argTypes;
+};
+
+struct ACS_Function : public ACS_Var
+{
+	vector<int> argTypes;
+};
+
+struct ACS_Array : public ACS_Var
+{
+	int dimensions[MAX_ARRAY_DIMS];
+	int size;
+};
+
+struct ACS_Struct : public ACS_Var
+{
+	int size;
+	vector<int> members;
+	vector<int> methods;
+	vector<int> constructors;
+	vector<int> operators;
 };
 
 struct symArray_t
@@ -50,28 +104,12 @@ struct symArray_t
 	int size;
 };
 
-struct symStruct_t
-{
-	byte index;
-	int vartype;
-};
-
 struct symLabel_t
 {
 	int address;
 };
 
-struct symSpecial_t
-{
-	int value;
-	int argCount;
-};
 
-struct symConstant_t
-{
-	int value;
-	int fileDepth;
-};
 
 struct symInternFunc_t
 {
@@ -132,4 +170,3 @@ void SY_FreeConstants(int depth);
 void SY_ClearShared();
 
 // PUBLIC DATA DECLARATIONS ------------------------------------------------
-
