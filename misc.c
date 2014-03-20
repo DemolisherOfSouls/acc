@@ -43,7 +43,7 @@ using std::ios;
 extern bool acs_BigEndianHost;
 extern bool acs_VerboseMode;
 extern bool acs_DebugMode;
-extern FILE *acs_DebugFile;
+extern fstream acs_DebugFile;
 
 // PUBLIC DATA DEFINITIONS -------------------------------------------------
 
@@ -87,7 +87,7 @@ int MS_LittleUINT(int val)
 // MS_LoadFile
 //
 //==========================================================================
-void MS_LoadFile(string name, vector<char>* DataPointer)
+void MS_LoadFile(string name, vector<char>& DataReference)
 {
 	if (name.length() >= MAX_FILE_NAME_LENGTH)
 		ERR_Exit(ERR_FILE_NAME_TOO_LONG, false, name);
@@ -100,9 +100,9 @@ void MS_LoadFile(string name, vector<char>* DataPointer)
 	struct stat fileInfo;
 	int size = fileInfo.st_size;
 
-	DataPointer->resize(size);
+	DataReference.resize(size);
 
-	file.read(DataPointer->data(), size);
+	file.read(DataReference.data(), size);
 
 	if (file.fail())
 		ERR_Exit(ERR_CANT_READ_FILE, false, name);
@@ -130,14 +130,14 @@ bool MS_FileExists(string name)
 // MS_SaveFile
 //
 //==========================================================================
-bool MS_SaveFile(string name, char *buffer, int length)
+bool MS_SaveFile(string name, vector<char>& DataReference)
 {
 	fstream file = fstream(name, ios::binary | ios::out | ios::trunc);
 	
 	if (!file.is_open())
 		return false;
 
-	file.write(buffer, length);
+	file.write(DataReference.data(), DataReference.size());
 	file.flush();
 	file.close();
 	
@@ -221,34 +221,33 @@ bool MS_StripFilename(string &name)
 
 //==========================================================================
 //
-// MS_Message
+// MS_Message [JRT]
+//
+// This mess is priceless. I'm so proud :,)
 //
 //==========================================================================
-#define MS_MSG_INIT(msg) if (msg == MSG_VERBOSE && !acs_VerboseMode || msg == MSG_DEBUG && !acs_DebugMode) return; fstream stream
-#define MS_MSG_CHECK(msg) { if (msg == MSG_DEBUG && acs_DebugFile) stream = fstream(acs_DebugFile->_tmpfname, ios::app | ios::out); }
-#define MS_MSG_WRITE(msg,data) { if (msg == MSG_DEBUG && acs_DebugFile) { stream << data; } else { std::cout << data; } }
-#define MS_MSG_CLOSE(msg) { if(msg == MSG_DEBUG && acs_DebugFile) { stream << std::endl; stream.flush(); stream.close(); } else { std::cout << std::endl; } }
+#define MS_MSG_INIT(msg) if (msg == MSG_VERBOSE && !acs_VerboseMode || msg == MSG_DEBUG && !acs_DebugMode) return;
+#define MS_MSG_WRITE(msg,data) { if (msg == MSG_DEBUG && acs_DebugFile.is_open) { acs_DebugFile << data; } else { std::cout << data; } }
+#define MS_MSG_CLOSE(msg) { if(msg == MSG_DEBUG && acs_DebugFile.is_open) { acs_DebugFile << std::endl; acs_DebugFile.flush(); acs_DebugFile.close(); } else { std::cout << std::endl; } }
 
-void MS_Message(msg_t msg, string text)
+void MS_Message(msg_t msg, const string text)
 {
 	MS_MSG_INIT(msg);
-	MS_MSG_CHECK(msg);
 	MS_MSG_WRITE(msg, text);
 	MS_MSG_CLOSE(msg);
 }
 
 template <class type>
-void MS_Message(msg_t msg, string text, type info)
+void MS_Message(msg_t msg, const string text, const type info)
 {
 	MS_MSG_INIT(msg);
-	MS_MSG_CHECK(msg);
 	MS_MSG_WRITE(msg, text);
 	MS_MSG_WRITE(msg, info);
 	MS_MSG_CLOSE(msg);
 }
 
 template <class type, class type2>
-void MS_Message(msg_t msg, string text, type info, type2 info2)
+void MS_Message(msg_t msg, const string text, const type info, const type2 info2)
 {
 	MS_MSG_INIT(msg);
 	MS_MSG_CHECK(msg);
@@ -259,7 +258,7 @@ void MS_Message(msg_t msg, string text, type info, type2 info2)
 }
 
 template <class type, class type2, class type3>
-void MS_Message(msg_t msg, string text, type info, type2 info2, type3 info3)
+void MS_Message(msg_t msg, const string text, const type info, const type2 info2, const type3 info3)
 {
 	MS_MSG_INIT(msg);
 	MS_MSG_CHECK(msg);
@@ -267,6 +266,19 @@ void MS_Message(msg_t msg, string text, type info, type2 info2, type3 info3)
 	MS_MSG_WRITE(msg, info);
 	MS_MSG_WRITE(msg, info2);
 	MS_MSG_WRITE(msg, info3);
+	MS_MSG_CLOSE(msg);
+}
+
+template <class type, class type2, class type3, class type4>
+void MS_Message(msg_t msg, const string text, const type info, const type2 info2, const type3 info3, const type4 info4)
+{
+	MS_MSG_INIT(msg);
+	MS_MSG_CHECK(msg);
+	MS_MSG_WRITE(msg, text);
+	MS_MSG_WRITE(msg, info);
+	MS_MSG_WRITE(msg, info2);
+	MS_MSG_WRITE(msg, info3);
+	MS_MSG_WRITE(msg, info4);
 	MS_MSG_CLOSE(msg);
 }
 

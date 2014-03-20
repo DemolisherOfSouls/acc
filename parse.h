@@ -41,7 +41,6 @@ struct ScriptTypes
 // Variable defined at the map level or lower, with map level being 0.
 //
 //==========================================================================
-
 struct ACS_MapVar
 {
 	int index;
@@ -67,7 +66,6 @@ struct ACS_MapVar
 	{
 		index = -1; // Undefined
 	}
-
 	ACS_MapVar(char *name, int type = VT_INT, int depthIndex = 0)
 	{
 		index = nextIndex++;
@@ -98,7 +96,7 @@ struct ACS_MapVar
 
 	}
 };
-
+//TODO: Verify that this is even 'ok'. Should I just use a vector, and assign it an index that way?
 int ACS_MapVar::nextIndex = 0;
 ACS_MapVar ACS_MapVarList[MAX_MAP_VARIABLES];
 
@@ -107,7 +105,6 @@ ACS_MapVar ACS_MapVarList[MAX_MAP_VARIABLES];
 //==========================================================================
 // ACS_LocalVar
 //==========================================================================
-
 struct ACS_LocalVar
 {
 	int index;
@@ -130,7 +127,6 @@ struct ACS_LocalVar
 	{
 		index = -1; // Undefined
 	}
-
 	ACS_LocalVar(char *name)
 	{
 		this->name = name;

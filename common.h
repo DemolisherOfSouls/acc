@@ -101,33 +101,27 @@ public:
 	string()				: std::string() {}
 	string(std::string s)	: std::string(s) {}
 	string(char* c)			: std::string(c) {}
-	string(char c, int i)	: std::string(i, c) {}
+	string(const string& s)	: std::string(s) {}
 
 	int length(int padding)
 	{
 		return (length() + padding);
 	}
-	string tolower()
+	void tolower()
 	{
-		string s = this->data();
-
-		for (int c = 0; c < s.length(); c++)
+		for (int c = 0; c < this->length(); c++)
 		{
-			if (s[c] >= 'A' && s[c] <= 'Z')
-				s[c] += 32;
+			if (this[0][c] >= 'A' && this[0][c] <= 'Z')
+				this[0][c] += 32;
 		}
-		return s;
 	}
-	string toupper()
+	void toupper()
 	{
-		string s = this->data();
-
-		for (int c = 0; c < s.length(); c++)
+		for (int c = 0; c < this->length(); c++)
 		{
-			if (s[c] >= 'a' && s[c] <= 'z')
-				s[c] -= 32;
+			if (this[0][c] >= 'a' && this[0][c] <= 'z')
+				this[0][c] -= 32;
 		}
-		return s;
 	}
 };
 
@@ -149,7 +143,7 @@ class vector : public std::vector<type>
 
 	pointer a_pointer(reference item)
 	{
-		return **item;
+		return *item;
 	}
 
 public:
@@ -161,16 +155,18 @@ public:
 	using std::vector::size;
 	using std::vector::data;
 	using std::vector::empty;
+	using std::vector::capacity;
 
 	vector() : std::vector() {}
 	vector(int size) : std::vector(size) {}
 	vector(const_reference rItem) : std::vector(rItem) {}
+	vector(type rItem) : std::vector(rItem) {}
 
 	void operator<< (type rItem)
 	{
 		add(rItem);
 	}
-	pointer operator[] (int index)
+	reference operator[] (int index)
 	{
 		if (index >= size())
 		{
@@ -180,7 +176,7 @@ public:
 		{
 			index = 0;
 		}
-		return a_pointer(at(index));
+		return at(index);
 	}
 
 	int lastIndex()
@@ -192,15 +188,37 @@ public:
 		return size();
 	}
 
-	pointer lastAdded()
+	reference lastAdded()
 	{
-		return a_pointer(at(last_index));
+		return at(last_index);
 	}
 
 	void add(type item)
 	{
 		push_back(item);
 		last_index = size() - 1;
+	}
+
+	//Add item to index 'pos', moving the item there to the end if necessary
+	void prefer(int pos, type item)
+	{
+		// Resize is needed
+		if (pos >= capacity())
+			resize();
+
+		// Check to see if position is filled
+		if (pos + 1 < size())
+		{
+			//Add item in desired place to end,
+			//then assign the item to the desired place
+			add(at(pos));
+			at(pos) = item;
+			last_index = pos;
+		}
+		else
+		{
+			at(pos) = item;
+		}
 	}
 	
 	void resize()

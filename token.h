@@ -131,22 +131,25 @@ enum tokenType_t : int
 	TK_STRPARAM_EVAL,	// 'strparam'
 	TK_STRCPY,          // 'strcpy'
 	// [JRT] New for ACC++
-	TK_TID,				// 'tid'
-	TK_FIXED,			// 'fixed'
-	TK_ACTOR,			// 'actor'
+	//TK_TID,			// 'tid'
+	//TK_FIXED,			// 'fixed'
+	//TK_ACTOR,			// 'actor'
 	TK_NEW,				// 'new'
 	TK_STRUCT,			// 'struct'
 	TK_METHOD,			// 'method'
-	TK_LOCAL,			// 'local'
-	TK_OVERRIDES,		// 'overrides'
+	//TK_LOCAL,			// 'local'
+	//TK_OVERRIDES,		// 'overrides'
 	TK_CLASS,			// 'class'
-	TK_SOUND,			// 'sound'
-	TK_IMAGE,			// 'image'
-	TK_POINTERTO,		// '->'
-	//TK_STATIC,			// 'static'
-	TK_MUSIC,			// 'music'
+	//TK_SOUND,			// 'sound'
+	//TK_IMAGE,			// 'image'
+	//TK_MUSIC,			// 'music'
 	TK_DELETE,			// 'delete'
 	TK_QSTART,			// '?'
+	TK_TEMPLATE,		// 'template'
+	TK_TYPEDEF,			// 'typedef'
+	TK_PUBLIC,			// 'public'
+	TK_PRIVATE,			// 'private'
+	TK_POINTERTO,		// '->'
 };
 
 // PUBLIC FUNCTION PROTOTYPES ----------------------------------------------
@@ -180,6 +183,6 @@ extern int tk_SpecialArgCount;
 extern string tk_SourceName;
 extern int tk_IncludedLines;
 extern bool forSemicolonHack;
-extern string MasterSourceLine;  // master line - Ty 07jan2000
-extern int MasterSourcePos;      // master position - Ty 07jan2000
-extern bool ClearMasterSourceLine; // ready for new line - Ty 07jan2000
+extern string MasterSourceLine;		// master line - Ty 07jan2000
+extern int MasterSourcePos;			// master position - Ty 07jan2000
+extern bool ClearMasterSourceLine;	// ready for new line - Ty 07jan2000

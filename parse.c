@@ -597,7 +597,7 @@ static void OuterScript()
 	}
 	else if(tk_Token == TK_STRING)
 	{ // Named scripts start counting at -1 and go down from there.
-		if(strcasecmp("None", tk_String) == 0)
+		if(tk_String.compare("None") == 0)
 		{
 			ERR_Error(ERR_SCRIPT_NAMED_NONE, true, NULL);
 		}

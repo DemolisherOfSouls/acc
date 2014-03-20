@@ -52,7 +52,7 @@ static void ProcessArgs();
 bool acs_BigEndianHost;
 bool acs_VerboseMode;
 bool acs_DebugMode;
-string acs_DebugFile;
+fstream acs_DebugFile;
 string acs_SourceFileName;
 
 // PRIVATE DATA DEFINITIONS ------------------------------------------------
@@ -120,7 +120,7 @@ int main(int argc, char **argv)
 
 static void DisplayBanner()
 {
-	cerr << 
+	cerr << //TODO: Finish this conversion
 	fprintf(stderr, "\nOriginal ACC Version 1.10 by Ben Gokey\n");
 	fprintf(stderr, "Copyright (c) "COPYRIGHT_YEARS_TEXT
 		" Raven Software, Corp.\n\n");
@@ -151,7 +151,7 @@ static void Init()
 		acs_BigEndianHost = true;
 	acs_VerboseMode = true;
 	acs_DebugMode = false;
-	acs_DebugFile = NULL;
+	acs_DebugFile = fstream();
 	TK_Init();
 	SY_Init();
 	STR_Init();
@@ -168,7 +168,6 @@ static void Init()
 // Allowing space after options (option parameter as the next argument)
 //
 //==========================================================================
-
 static void ProcessArgs()
 {
 	int i = 1;
@@ -226,12 +225,12 @@ static void ProcessArgs()
 			switch(count)
 			{
 				case 1:
-					strcpy(acs_SourceFileName, text);
+					acs_SourceFileName = text;
 					MS_SuggestFileExt(acs_SourceFileName, ".acs");
 					break;
 					
 				case 2:
-					strcpy(ObjectFileName, text);
+					ObjectFileName = text;
 					MS_SuggestFileExt(ObjectFileName, ".o");
 					break;
 					
@@ -258,7 +257,7 @@ static void ProcessArgs()
 	
 	if(count == 1)
 	{
-		strcpy(ObjectFileName, acs_SourceFileName);
+		ObjectFileName = acs_SourceFileName;
 		MS_StripFileExt(ObjectFileName);
 		MS_SuggestFileExt(ObjectFileName, ".o");
 	}
@@ -269,7 +268,6 @@ static void ProcessArgs()
 // DisplayUsage
 //
 //==========================================================================
-
 static void DisplayUsage()
 {
 	puts("\nUsage: ACC [options] source[.acs] [object[.o]]\n");
@@ -277,6 +275,11 @@ static void DisplayUsage()
 	puts("-d[file]   Output debugging information");
 	puts("-h         Create pcode compatible with Hexen and old ZDooms");
 	puts("-hh        Like -h, but use of new features is only a warning");
+	puts("-e         Use single line error and warning messages");
+	puts("-w0        Ignore all warnings"); //TODO: add warnings
+	puts("-w#        Sets the desired warning level, where '#' is 1-4");
+	puts("-we        Treat all warnings as errors");
+	puts("-cs        Enforces case sensitivity"); //TODO: Add case sensitivity
 	exit(1);
 }
 
@@ -286,12 +289,12 @@ static void DisplayUsage()
 //
 //==========================================================================
 
-static void OpenDebugFile(char *name)
+static void OpenDebugFile(string name)
 {
-	if((acs_DebugFile = fopen(name, "w")) == NULL)
-	{
+	acs_DebugFile.open(name, ios::out, ios::trunc);
+
+	if(!acs_DebugFile.is_open)
 		ERR_Exit(ERR_CANT_OPEN_DBGFILE, false, "File: \"%s\".", name);
-	}
 }
 
 //==========================================================================
