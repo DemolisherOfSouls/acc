@@ -153,7 +153,7 @@ static void Init()
 	acs_DebugMode = false;
 	acs_DebugFile = fstream();
 	TK_Init();
-	SY_Init();
+	sym_Init();
 	STR_Init();
 	ProcessArgs();
 	MS_Message(MSG_NORMAL, "Host byte order: %s endian\n",

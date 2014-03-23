@@ -168,9 +168,6 @@ int pa_GlobalArrayCount;
 enum ImportModes ImportMode = IMPORT_None;
 bool ExporterFlagged;
 bool pa_ConstExprIsString;
-vector<int> ObjectTypes;						//Contains all internal and user defined objects, structs and typedefs
-vector<ACS_Var> ObjectTypes;						//Contains all internal and user defined objects, structs and typedefs
-vector<int> ObjectTypes;						//Contains all internal and user defined objects, structs and typedefs
 
 // PRIVATE DATA DEFINITIONS ------------------------------------------------
 
@@ -4282,9 +4279,8 @@ static symbolNode_t *SpeculateSymbol(char *name, bool hasReturn)
 	sym = SY_Find(name);
 	if(sym == NULL)
 	{
-		char name[MAX_IDENTIFIER_LENGTH];
+		string name = tk_String;
 
-		strcpy (name, tk_String);
 		TK_NextToken();
 		if(tk_Token == TK_LPAREN)
 		{ // Looks like a function call

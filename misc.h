@@ -36,6 +36,7 @@ void MS_StripFileExt(string &name);
 bool MS_StripFilename(string &path);
 
 //TODO: MS_Message Declaration: Nasty nasty stuff...
+void MS_Message(msg_t msg, string text);
 template <class type> void MS_Message(msg_t msg, string text, type info);
 template <class type, class type2> void MS_Message(msg_t msg, string text, type info, type2 info2);
 template <class type, class type2, class type3> void MS_Message(msg_t msg, string text, type info, type2 info2, type3 info3);

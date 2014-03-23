@@ -512,7 +512,7 @@ void PC_OpenObject(string name, size_t size, int flags)
 		ERR_Exit(ERR_FILE_NAME_TOO_LONG, false, name);
 	}
 	ObjectName = name;
-	pCode_Buffer.setsize(size);
+	pCode_Buffer.resize(size);
 	ObjectFlags = flags;
 	pc_ScriptCount = 0;
 	ObjectOpened = true;
@@ -528,14 +528,14 @@ void PC_OpenObject(string name, size_t size, int flags)
 
 void PC_CloseObject()
 {
-	MS_Message(MSG_DEBUG, "---- PC_CloseObject ----\n");
-	while (pc_Address & 3)
+	MS_Message(MSG_DEBUG, string("---- PC_CloseObject ----\n"));
+	while (pCode_current & 3)
 	{
 		PC_AppendByte (0);
 	}
 	if(!pc_NoShrink || (NumLanguages > 1) || (NumStringLists > 0) ||
 		(pc_FunctionCount > 0) || MapVariablesInit || NumArrays != 0 ||
-		pc_EncryptStrings || Imports || HaveExtendedScripts)
+		pc_EncryptStrings || !Imports.empty || HaveExtendedScripts)
 	{
 		if(pc_EnforceHexen)
 		{
@@ -552,7 +552,7 @@ void PC_CloseObject()
 	{
 		CloseOld();
 	}
-	if(MS_SaveFile(ObjectName, pc_Buffer, pc_Address) == false)
+	if(MS_SaveFile(ObjectName, pCode_Buffer.data) == false)
 	{
 		ERR_Exit(ERR_SAVE_OBJECT_FAILED, false);
 	}
@@ -607,7 +607,7 @@ static void CloseNew()
 		CreateDummyScripts();
 	}
 
-	chunkStart = pc_Address;
+	chunkStart = pCode_current;
 
 	// Only write out those scripts that this acs file actually provides.
 	for(i = j = 0; i < pc_ScriptCount; ++i)
@@ -699,7 +699,7 @@ static void CloseNew()
 				info->address, info->argCount, info->localCount);
 			PC_AppendByte(info->argCount);
 			PC_AppendByte(info->localCount);
-			PC_AppendByte((byte)(info->hasReturnValue?1:0));
+			PC_AppendByte(info->hasReturnValue?1:0);
 			PC_AppendByte(0);
 			PC_AppendInt(info->address);
 		}

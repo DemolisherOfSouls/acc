@@ -155,6 +155,7 @@ enum error_t : int
 	ERR_NO_STRUCT_ARRAY_INIT,
 	ERR_ALREADY_DELETED,
 	ERR_CANNOT_MODIFY_CONST,
+	ERR_INVALID_ARRAY_SIZE,
 };
 
 // PUBLIC FUNCTION PROTOTYPES ----------------------------------------------

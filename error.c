@@ -186,9 +186,12 @@ static struct
 	{ ERR_HEXEN_COMPAT, "Attempt to use feature not supported by Hexen." },
 	{ ERR_NOT_HEXEN, "Cannot save; new features are not compatible with Hexen." },
 	{ ERR_SPECIAL_RANGE, "Line specials with values higher than 255 require #nocompact." },
+	//[JRT] New errors
 	{ ERR_BAD_CONSTRUCTOR, "%s: Constructor is not properly formed." },
 	{ ERR_BAD_METHOD, "Method %s is not found within %s." },
 	{ ERR_NO_STRUCT_ARRAY_INIT, "%s: Cannot auto-initialize an array of structs, must be initialized to default constructor."},
+	{ ERR_INVALID_ARRAY_SIZE, "Invalid array size, dimensions must be positive integers." },
+	//[JRT] End new errors
 	{ ERR_NONE, "" }
 };
 

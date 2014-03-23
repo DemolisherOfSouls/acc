@@ -15,6 +15,7 @@
 
 #include <string>
 #include <vector>
+#include <algorithm>
 
 // MACROS ------------------------------------------------------------------
 
@@ -61,10 +62,14 @@
 
 #define MAKE4CC(a,b,c,d)	((a)|((b)<<8)|((c)<<16)|((d)<<24))
 
+#define set(member) this->member = member
+#define lib(list,member) list[index].member = member
+#define libset(list,member) list[index].member = set(member)
+
 // TYPES -------------------------------------------------------------------
 
 //Just for looks, honestly
-typedef unsigned char byte;
+using byte = unsigned char;
 
 enum ImportModes : int
 {
@@ -132,19 +137,15 @@ public:
 template <class type> //Vector data type
 class vector : public std::vector<type>
 {
+protected:
 	int last_index;
 
-	typedef type& reference;
-	typedef type* pointer;
-	typedef const type& const_reference;
-	typedef const type* const_pointer;
-	typedef int size_type;
-	typedef type value_type;
-
-	pointer a_pointer(reference item)
-	{
-		return *item;
-	}
+	using reference = type&;
+	using pointer = type*;
+	using const_reference = const reference;
+	using const_pointer = const pointer;
+	using size_type = int;
+	using value_type = type;
 
 public:
 
