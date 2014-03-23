@@ -7,8 +7,6 @@
 
 // HEADER FILES ------------------------------------------------------------
 
-#include <string.h>
-#include <malloc.h>
 #include "common.h"
 #include "strlist.h"
 #include "error.h"
@@ -29,6 +27,11 @@ struct stringList_t
 {
 	int stringCount;
 	stringInfo_t strings[MAX_STRINGS];
+
+	stringList_t()
+	{
+		stringCount = 0;
+	}
 };
 
 struct languageInfo_t
@@ -43,9 +46,9 @@ struct languageInfo_t
 
 // PRIVATE FUNCTION PROTOTYPES ---------------------------------------------
 
-static int STR_PutStringInSomeList(stringList_t *list, int index, char *name);
-static int STR_FindInSomeList(stringList_t *list, char *name);
-static int STR_FindInSomeListInsensitive(stringList_t *list, char *name);
+static int STR_PutStringInSomeList(stringList_t *list, int index, string name);
+static int STR_FindInSomeList(stringList_t *list, string name);
+static int STR_FindInSomeListInsensitive(stringList_t *list, string name);
 static void DumpStrings(stringList_t *list, int lenadr, bool quad, bool crypt);
 static void Encrypt(void *data, int key, int len);
 
@@ -53,7 +56,8 @@ static void Encrypt(void *data, int key, int len);
 
 // PUBLIC DATA DEFINITIONS -------------------------------------------------
 
-int NumLanguages, NumStringLists;
+int NumLanguages = 0;
+int NumStringLists = 0;
 
 // PRIVATE DATA DEFINITIONS ------------------------------------------------
 
@@ -69,45 +73,39 @@ static stringList_t *StringLists[NUM_STRLISTS];
 //==========================================================================
 void STR_Init()
 {
-	NumLanguages = NumStringLists = 0;
-	STR_FindLanguage(NULL);	// Default language is always number 0
+	STR_FindLanguage("");	// Default language is always number 0
 }
 
 //==========================================================================
 //
 // STR_FindLanguage
+// Returns the index of the language, and creates it if needed
 //
 //==========================================================================
 int STR_FindLanguage(string name)
 {
-	int i;
+	int i = 0;
 
-	if (name == NULL)
-	{
-		if (NumLanguages > 0)
-		{
-			return 0;
-		}
-		i = 0;
-	}
+	if (name.empty() && NumLanguages > 0)
+		return 0;
+
 	else
-		for(i = 0; i < NumLanguages; i++)
-			if (name.compare(LanguageInfo[i]->name) == 0)
+		for each (languageInfo_t *info in LanguageInfo)
+		{
+			if (info = NULL)
+				break;
+			if (name.compare(info->name) == 0)
 				return i;
-	if(i == NumLanguages)
+			i++;
+		}
+	if (i == NumLanguages)
 	{
 		LanguageInfo[i] = new languageInfo_t(name, stringList_t());
-		memset(LanguageInfo[i]->name, 0, 4);
-		if(name != NULL)
-		{
-			LanguageInfo[i]->name, name, 3);
-		}
+		LanguageInfo[i]->name = name;
 		LanguageInfo[i]->list.stringCount = 0;
 		NumLanguages++;
-		if(NumLanguages > 1 && pc_EnforceHexen)
-		{
+		if (NumLanguages > 1 && pc_EnforceHexen)
 			ERR_Error(ERR_HEXEN_COMPAT, true);
-		}
 	}
 	return i;
 }
@@ -117,8 +115,7 @@ int STR_FindLanguage(string name)
 // STR_Find
 //
 //==========================================================================
-
-int STR_Find(char *name)
+int STR_Find(string name)
 {
 	return STR_FindInLanguage(0, name);
 }
@@ -128,8 +125,7 @@ int STR_Find(char *name)
 // STR_FindInLanguage
 //
 //==========================================================================
-
-int STR_FindInLanguage(int language, char *name)
+int STR_FindInLanguage(int language, string name)
 {
 	return STR_FindInSomeList (&LanguageInfo[language]->list, name);
 }
@@ -139,8 +135,7 @@ int STR_FindInLanguage(int language, char *name)
 // STR_FindInList
 //
 //==========================================================================
-
-int STR_FindInList(int list, char *name)
+int STR_FindInList(int list, string name)
 {
 	if (StringLists[list] == NULL)
 	{
@@ -160,17 +155,14 @@ int STR_FindInList(int list, char *name)
 // STR_FindInSomeList
 //
 //==========================================================================
-
-static int STR_FindInSomeList(stringList_t *list, char *name)
+static int STR_FindInSomeList(stringList_t *list, string name)
 {
-	int i;
-
-	for(i = 0; i < list->stringCount; i++)
+	int i = 0;
+	for each(stringInfo_t info in list->strings)
 	{
-		if(strcmp(list->strings[i].name, name) == 0)
-		{
+		if(info.name.compare(name) == 0)
 			return i;
-		}
+		i++;
 	}
 	// Add to list
 	return STR_PutStringInSomeList(list, i, name);
@@ -181,7 +173,6 @@ static int STR_FindInSomeList(stringList_t *list, char *name)
 // STR_FindInListInsensitive
 //
 //==========================================================================
-
 int STR_FindInListInsensitive(int list, char *name)
 {
 	if (StringLists[list] == NULL)
@@ -243,7 +234,7 @@ const char *STR_GetString(int list, int index)
 //
 //==========================================================================
 
-int STR_AppendToList(int list, char *name)
+int STR_AppendToList(int list, string name)
 {
 	if (StringLists[list] == NULL)
 	{
@@ -264,38 +255,28 @@ int STR_AppendToList(int list, char *name)
 //
 //==========================================================================
 
-static int STR_PutStringInSomeList(stringList_t *list, int index, char *name)
+static int STR_PutStringInSomeList(stringList_t *list, int index, string name)
 {
-	int i;
-
 	if(index >= MAX_STRINGS)
 	{
 		ERR_Error(ERR_TOO_MANY_STRINGS, true, MAX_STRINGS);
 		return 0;
 	}
-	MS_Message(MSG_DEBUG, "Adding string %d:\n  \"%s\"\n",
-		list->stringCount, name);
+
+	MS_Message(MSG_DEBUG, "Adding string %d:\n  \"%s\"\n", list->stringCount, name);
+
 	if(index >= list->stringCount)
 	{
-		for(i = list->stringCount; i <= index; i++)
-		{
-			list->strings[i].name = NULL;
-		}
+		for each(stringInfo_t info in list->strings)
+			info.name = "";
 		list->stringCount = index + 1;
 	}
-	if(list->strings[index].name != NULL)
-	{
-		free(list->strings[index].name);
-	}
-	if(name != NULL)
-	{
-		list->strings[index].name = new char[strlen(name)+1];
-		strcpy(list->strings[index].name, name);
-	}
+
+	if(!name.empty)
+		list->strings[index].name = name;
 	else
-	{
-		list->strings[index].name = NULL;
-	}
+		list->strings[index].name.clear();
+
 	return index;
 }
 

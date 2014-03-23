@@ -7,11 +7,6 @@
 
 // HEADER FILES ------------------------------------------------------------
 
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-#include <malloc.h>
-#include <stdio.h>
 #include <assert.h>
 
 #include "common.h"
@@ -33,7 +28,7 @@
 
 // TYPES -------------------------------------------------------------------
 
-typedef enum
+enum statement_t : int
 {
 	STMT_SCRIPT,
 	STMT_IF,
@@ -42,37 +37,29 @@ typedef enum
 	STMT_WHILEUNTIL,
 	STMT_SWITCH,
 	STMT_FOR
-} statement_t;
+};
 
-typedef struct
+struct loopInfo_t 
 {
 	int level;
-	int addressPtr;
-} breakInfo_t;
+	int address;
+};
 
-typedef struct
+struct caseInfo_t : public loopInfo_t
 {
-	int level;
-	int addressPtr;
-} continueInfo_t;
-
-typedef struct
-{
-	int level;
 	int value;
 	bool isDefault;
-	int address;
-} caseInfo_t;
+};
 
-typedef struct prefunc_s
+struct prefunc_t
 {
-	struct prefunc_s *next;
-	symbolNode_t *sym;
+	struct prefunc_t *next;
+	ACS_Node *node;
 	int address;
 	int argcount;
 	int line;
 	char *source;
-} prefunc_t;
+};
 
 // EXTERNAL FUNCTION PROTOTYPES --------------------------------------------
 
@@ -84,7 +71,7 @@ static void CountScript(int type);
 static void Outside();
 static void OuterScript();
 static void OuterFunction();
-static void OuterMapVar(int vartype);
+static void OuterMapVar(int type);
 static void OuterWorldVar(bool isGlobal);
 static void OuterSpecialDef();
 static void OuterDefine(bool force);
@@ -102,7 +89,7 @@ static void LeadingStrcpy();
 static void LeadingPrint();
 static void LeadingHudMessage();
 static void LeadingVarAssign(symbolNode_t *sym);
-static pcd_t GetAssignPCD(tokenType_t token, symbolType_t symbol);
+static pcd_t GetAssignPCD(tokenType_t token, int type);
 static void LeadingInternFunc(symbolNode_t *sym);
 static void LeadingScriptFunc(symbolNode_t *sym);
 static void LeadingSuspend();
@@ -141,8 +128,8 @@ static void SendExprCommand(pcd_t pcd);
 static void PushExStk(int value);
 static int PopExStk();
 static pcd_t TokenToPCD(tokenType_t token);
-static pcd_t GetPushVarPCD(symbolType_t symType);
-static pcd_t GetIncDecPCD(tokenType_t token, symbolType_t symbol);
+static pcd_t GetPushVarPCD(int symType);
+static pcd_t GetIncDecPCD(tokenType_t token, int symbol);
 static int EvalConstExpression();
 static void ParseArrayIndices(symbolNode_t *sym, int requiredIndices);
 static void InitializeArray(symbolNode_t *sym, int dims[MAX_ARRAY_DIMS], int size);
@@ -168,6 +155,8 @@ int pa_GlobalArrayCount;
 enum ImportModes ImportMode = IMPORT_None;
 bool ExporterFlagged;
 bool pa_ConstExprIsString;
+int pa_CurrentDepth = 0;	// Current statement depth
+int pa_FileDepth = 0;		// Outermost level in the current file
 
 // PRIVATE DATA DEFINITIONS ------------------------------------------------
 

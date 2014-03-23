@@ -1457,23 +1457,20 @@ void PC_SetScriptVarCount(int number, int type, int varCount)
 //
 //==========================================================================
 
-void PC_AddFunction(symbolNode_t *sym)
+void PC_AddFunction(ACS_Node *node)
 {
 	functionInfo_t *function;
 
 	if(pc_FunctionCount == MAX_FUNCTION_COUNT)
-	{
 		ERR_Error(ERR_TOO_MANY_FUNCTIONS, true, NULL);
-	}
+	
 	else if(pc_EnforceHexen)
-	{
 		ERR_Error(ERR_HEXEN_COMPAT, true);
-	}
 
 	function = &FunctionInfo[pc_FunctionCount];
-	function->hasReturnValue = (byte)sym->info.scriptFunc.hasReturnValue;
-	function->argCount = (byte)sym->info.scriptFunc.argCount;
-	function->localCount = (byte)sym->info.scriptFunc.varCount;
+	function->hasReturnValue = (node->cmd->type != VAR_VOID);
+	function->argCount = sym->info.scriptFunc.argCount;
+	function->localCount = sym->info.scriptFunc.varCount;
 	function->name = STR_AppendToList (STRLIST_FUNCTIONS, sym->name);
 	function->address = sym->info.scriptFunc.address;
 	sym->info.scriptFunc.funcNumber = pc_FunctionCount;

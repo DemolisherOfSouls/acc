@@ -5,9 +5,9 @@
 //**
 //**************************************************************************
 
-//TODO: implement strings over char* arrays
-//TODO: implement vectors over resizing pointers
-//TODO: implement proper data types
+//TODO: implement strings over char* arrays (Almost Done)
+//TODO: implement vectors over resizing pointers (Almost Done)
+//TODO: implement proper data types (Almost Done)
 
 #pragma once
 
@@ -62,6 +62,7 @@
 
 #define MAKE4CC(a,b,c,d)	((a)|((b)<<8)|((c)<<16)|((d)<<24))
 
+// [JRT] Convenience macros
 #define set(member) this->member = member
 #define lib(list,member) list[index].member = member
 #define libset(list,member) list[index].member = set(member)
@@ -90,10 +91,9 @@ enum : int
 	NUM_STRLISTS
 };
 
-//[JRT] Slightly modified std::string
+// [JRT] Slightly modified std::string
 // Added method: length (int padding)
-// Added char constructor
-// Default constructor is an empty string
+// Added methods: tolower/toupper
 class string : public std::string
 {
 public:
@@ -103,10 +103,11 @@ public:
 	using std::string::operator[];
 	using std::string::length;
 
-	string()				: std::string() {}
+	string()				: std::string()  {}
 	string(std::string s)	: std::string(s) {}
 	string(char* c)			: std::string(c) {}
 	string(const string& s)	: std::string(s) {}
+	string(char c, int n)	: std::string(n, c) {}
 
 	int length(int padding)
 	{
@@ -114,18 +115,20 @@ public:
 	}
 	void tolower()
 	{
-		for (int c = 0; c < this->length(); c++)
+		for (int c = 0; c < length(); c++)
 		{
-			if (this[0][c] >= 'A' && this[0][c] <= 'Z')
-				this[0][c] += 32;
+			char *r = &at(c);
+			if (*r >= 'A' && *r <= 'Z')
+				*r += 32;
 		}
 	}
 	void toupper()
 	{
-		for (int c = 0; c < this->length(); c++)
+		for (int c = 0; c < length(); c++)
 		{
-			if (this[0][c] >= 'a' && this[0][c] <= 'z')
-				this[0][c] -= 32;
+			char *r = &at(c);
+			if (*r >= 'a' && *r <= 'z')
+				*r -= 32;
 		}
 	}
 };
@@ -194,15 +197,17 @@ public:
 		return at(last_index);
 	}
 
-	void add(type item)
+	void add(type &&item)
 	{
 		push_back(item);
 		last_index = size() - 1;
 	}
 
 	//Add item to index 'pos', moving the item there to the end if necessary
-	void prefer(int pos, type item)
+	void prefer(int pos, type &&item)
 	{
+		pointer spot = at(pos);
+
 		// Resize is needed
 		if (pos >= capacity())
 			resize();
@@ -213,12 +218,12 @@ public:
 			//Add item in desired place to end,
 			//then assign the item to the desired place
 			add(at(pos));
-			at(pos) = item;
+			spot = item;
 			last_index = pos;
 		}
 		else
 		{
-			at(pos) = item;
+			spot = item;
 		}
 	}
 	

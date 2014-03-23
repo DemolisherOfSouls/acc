@@ -40,3 +40,5 @@ extern int pa_GlobalArrayCount;
 extern enum ImportModes ImportMode;
 extern bool ExporterFlagged;
 extern bool pa_ConstExprIsString;
+extern int pa_CurrentDepth;			// Current statement depth
+extern int pa_FileDepth;			// Outermost level in the current file

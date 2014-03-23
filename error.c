@@ -9,7 +9,6 @@
 
 #include <iostream>
 #include <fstream>
-#include <stdarg.h>
 #include "common.h"
 #include "error.h"
 #include "token.h"
@@ -19,12 +18,50 @@ using std::fstream;
 using std::ios;
 using std::cerr;
 using std::endl;
+using std::streambuf;
+using std::to_string;
 
 // MACROS ------------------------------------------------------------------
 
 #define ERROR_FILE_NAME "acs.err"
 
 // TYPES -------------------------------------------------------------------
+
+class estream : public fstream
+{
+	using fstream::operator<<;
+	
+
+public:
+	
+	estream(string file, int openmode = 3, int prot = 64) : fstream(file.c_str(), openmode, prot) {} ;
+
+	streambuf *log = cerr.rdbuf();
+
+	estream& operator << (string s)
+	{
+		log->sputn(s.c_str(), s.length());
+		rdbuf()->sputn(s.c_str(), s.length());
+	}
+	estream& operator << (const char * c)
+	{
+		log->sputn(c, string(c).length());
+		rdbuf()->sputn(c, string(c).length());
+	}
+	estream& operator << (int i)
+	{
+		operator<<(to_string(i));
+	}
+	estream& operator << (bool b)
+	{
+		operator<<(to_string(b));
+	}
+	estream& operator << (char c)
+	{
+		log->sputc(c);
+		rdbuf()->sputc(c);
+	}
+};
 
 enum errorInfo_e : int
 {
@@ -40,8 +77,6 @@ enum errorInfo_e : int
 
 static string ErrorText(int error);
 static string ErrorFileName();
-static void eprintf(string fmt, ...);
-static void veprintf(string fmt, va_list args);
 
 // EXTERNAL DATA DECLARATIONS ----------------------------------------------
 
@@ -51,7 +86,7 @@ extern char acs_SourceFileName[MAX_FILE_NAME_LENGTH];
 
 // PRIVATE DATA DEFINITIONS ------------------------------------------------
 
-static struct
+static struct errorName_t
 {
 	error_t number;
 	string name;
@@ -195,8 +230,8 @@ static struct
 	{ ERR_NONE, "" }
 };
 
-static fstream ErrorFile;
-static int ErrorCount;
+static estream ErrorFile;
+static int ErrorCount = 0;
 static errorInfo_e ErrorFormat;
 static string ErrorSourceName;
 static int ErrorSourceLine;
@@ -265,7 +300,7 @@ void ERR_Finish()
 //==========================================================================
 void ERR_ErrorV(int error, bool info, va_list args)
 {
-	string text;
+	ErrorFile = estream(ErrorFileName(), ios::out | ios::trunc);
 	bool showLine = false;
 	static bool showedInfo = false;
 
@@ -277,8 +312,7 @@ void ERR_ErrorV(int error, bool info, va_list args)
 	
 	else if(ErrorCount >= 100)
 	{
-		ErrorFile << "More than 100 errors. Can't continue." << endl;
-		cerr << "More than 100 errors. Can't continue." << endl;
+		ErrorFile << "More than 100 errors. Can't continue.\n";
 		ERR_Finish();
 	}
 	ErrorCount++;
@@ -303,45 +337,36 @@ void ERR_ErrorV(int error, bool info, va_list args)
         { // Output info compatible with older ACCs
           // for editors that expect it.
 			showedInfo = true;
-			ErrorFile << "Line " << line << " in file \"" << source << "\" ..." << endl;
-			cerr << "Line " << line << " in file \"" << source << "\" ..." << endl;
+			ErrorFile << "Line " << line << " in file \"" << source << "\" ...\n";
 		}
 		if(ErrorFormat == ERRINFO_GCC)
 		{
 			ErrorFile << source << ":" << line << ": ";
-			cerr << source << ":" << line << ": ";
 		}
 		else
 		{
 			ErrorFile << source << "(" << line << ") : ";
-			cerr << source << "(" << line << ") : ";
 			if(error != ERR_NONE)
 			{
 				ErrorFile << "error " << error << ": ";
-				cerr << "error " << error << ": ";
 			}
 		}
 	}
 	if(error != ERR_NONE)
 	{
-		text = ErrorText(error);
+		string text = ErrorText(error);
 		if(!text.empty())
 		{
 			veprintf(text, args);
 		}
-		ErrorFile << endl;
-		cerr << endl;
+		ErrorFile << '\n';
 		if(showLine)
 		{
 			// deal with master source line and position indicator - Ty 07jan2000
-			MasterSourceLine[MasterSourcePos] = '\0';  // pre-incremented already
-			MasterSourceLine = MasterSourceLine.
+			MasterSourceLine = MasterSourceLine.substr(0, MasterSourcePos); // pre-incremented already
 
-			ErrorFile << "> " << MasterSourceLine << endl;
-			ErrorFile << ">" << string(' ', MasterSourcePos) << "^" << endl;
-
-			cerr << "> " << MasterSourceLine << endl;
-			cerr << ">" << string(' ', MasterSourcePos) << "^" << endl;
+			ErrorFile << "> " << MasterSourceLine << '\n';
+			ErrorFile << ">" << string(' ', MasterSourcePos - 1) << "^" << '\n';
 		}
 	}
 }
@@ -393,39 +418,8 @@ void ERR_BadAlloc()
 //==========================================================================
 static string ErrorText(int error)
 {
-	int i;
-
-	for(i = 0; ErrorNames[i].number != ERR_NONE; i++)
-	{
-		if(error == ErrorNames[i].number)
-			return ErrorNames[i].name;
-	}
+	for each (errorName_t err in ErrorNames)
+		if (error == err.number)
+			return err.name;
 	return "";
-}
-
-//==========================================================================
-//
-// eprintf
-//
-//==========================================================================
-static void eprintf(string fmt, ...)
-{
-	va_list args;
-	va_start(args, fmt);
-	veprintf(fmt, args);
-	va_end(args);
-}
-
-//==========================================================================
-//
-// veprintf
-//
-//==========================================================================
-static void veprintf(string fmt, va_list args)
-{
-	cerr << fmt << args;
-	if(ErrorFile)
-	{
-		ErrorFile << fmt << args;
-	}
 }
