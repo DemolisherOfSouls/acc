@@ -167,5 +167,10 @@ void ERR_Finish();
 void ERR_Exit(int error, bool info, ...);
 void ERR_RemoveErrorFile();
 void ERR_BadAlloc();
+void ERR_VerifyUserErrorFile();
 
 // PUBLIC DATA DECLARATIONS ------------------------------------------------
+
+string UserErrorFileName;		// User defined error file name
+								// TODO: Maybe add the ability to add a path?
+								// TODO: Add error checking.

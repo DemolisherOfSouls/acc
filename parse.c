@@ -163,9 +163,9 @@ int pa_FileDepth = 0;		// Outermost level in the current file
 static byte ScriptVarCount;
 static statement_t StatementHistory[MAX_STATEMENT_DEPTH];
 static int StatementIndex;
-static breakInfo_t BreakInfo[MAX_BREAK];
+static loopInfo_t BreakInfo[MAX_BREAK];
 static int BreakIndex;
-static continueInfo_t ContinueInfo[MAX_CONTINUE];
+static loopInfo_t ContinueInfo[MAX_CONTINUE];
 static int ContinueIndex;
 static caseInfo_t CaseInfo[MAX_CASE];
 static int CaseIndex;
@@ -499,13 +499,13 @@ static void Outside()
 			break;
 		// [JRT] Types matter now
 		case TK_INT:
-			OuterMapVar(VT_INT);
+			OuterMapVar(VAR_INT);
 			break;
 		case TK_STR:
-			OuterMapVar(VT_STRING);
+			OuterMapVar(VAR_STR);
 			break;
 		case TK_BOOL:
-			OuterMapVar(VT_BOOL);
+			OuterMapVar(VAR_BOOL);
 			break;
 		case TK_FIXED:
 			OuterMapVar(VT_FIXED);
@@ -838,7 +838,7 @@ static void OuterFunction()
 		TK_Undo();
 		do
 		{
-			symbolType_t type;
+			int type;
 			symbolNode_t *local;
 
 			TK_NextToken();
@@ -1796,10 +1796,9 @@ static void LeadingFunction(bool executewait)
 
 static void LeadingIdentifier()
 {
-	symbolNode_t *sym;
+	ACS_Node *node = SpeculateSymbol(tk_String, false);
 
-	sym = SpeculateSymbol(tk_String, false);
-	switch(sym->type)
+	switch (node->type)
 	{
 		case SY_MAPARRAY:
 		case SY_SCRIPTVAR:
@@ -1809,13 +1808,13 @@ static void LeadingIdentifier()
 		case SY_GLOBALVAR:
 		case SY_WORLDARRAY:
 		case SY_GLOBALARRAY:
-			LeadingVarAssign(sym);
+			LeadingVarAssign(node);
 			break;
 		case SY_INTERNFUNC:
-			LeadingInternFunc(sym);
+			LeadingInternFunc(node);
 			break;
 		case SY_SCRIPTFUNC:
-			LeadingScriptFunc(sym);
+			LeadingScriptFunc(node);
 			break;
 		default:
 			break;
@@ -1828,14 +1827,14 @@ static void LeadingIdentifier()
 //
 //==========================================================================
 
-static void LeadingInternFunc(symbolNode_t *sym)
+static void LeadingInternFunc(ACS_Node *node)
 {
-	if(InsideFunction && sym->info.internFunc.latent)
+	if (InsideFunction && node->cmd->isLatent)
 	{
 		ERR_Error(ERR_LATENT_IN_FUNC, true);
 	}
-	ProcessInternFunc(sym);
-	if(sym->info.internFunc.hasReturnValue == true)
+	ProcessInternFunc(node);
+	if(node->cmd->type != VAR_VOID)
 	{
 		PC_AppendCmd(PCD_DROP);
 	}
@@ -1849,7 +1848,7 @@ static void LeadingInternFunc(symbolNode_t *sym)
 //
 //==========================================================================
 
-static void ProcessInternFunc(symbolNode_t *sym)
+static void ProcessInternFunc(ACS_Node *node)
 {
 	int i;
 	int argCount;
@@ -1860,14 +1859,14 @@ static void ProcessInternFunc(symbolNode_t *sym)
 	int argSave[8];
 
 	MS_Message(MSG_DEBUG, "---- ProcessInternFunc ----\n");
-	argCount = sym->info.internFunc.argCount;
-	optMask = sym->info.internFunc.optMask;
-	outMask = sym->info.internFunc.outMask;
+	argCount = node->cmd->argTypes.size();
+	optMask = node->cmd->optMask;
+	outMask = node->cmd->outMask;
 	TK_NextTokenMustBe(TK_LPAREN, ERR_MISSING_LPAREN);
 	if(TK_NextToken() == TK_CONST)
 	{
 		TK_NextTokenMustBe(TK_COLON, ERR_MISSING_COLON);
-		if(sym->info.internFunc.directCommand == PCD_NOP)
+		if(node->cmd->DirectCMD == PCD_NOP)
 		{
 			ERR_Error(ERR_NO_DIRECT_VER, true, NULL);
 			direct = false;
@@ -1877,11 +1876,11 @@ static void ProcessInternFunc(symbolNode_t *sym)
 		{
 			direct = true;
 			if (pc_NoShrink || argCount > 2 ||
-				(sym->info.internFunc.directCommand != PCD_DELAYDIRECT &&
-				 sym->info.internFunc.directCommand != PCD_RANDOMDIRECT))
+				(node->cmd->DirectCMD != PCD_DELAYDIRECT &&
+				node->cmd->DirectCMD != PCD_RANDOMDIRECT))
 			{
 				specialDirect = false;
-				PC_AppendCmd(sym->info.internFunc.directCommand);
+				PC_AppendCmd(node->cmd->DirectCMD);
 			}
 			else
 			{
@@ -1965,9 +1964,9 @@ static void ProcessInternFunc(symbolNode_t *sym)
 						}
 						else
 						{
-							symbolNode_t *sym = DemandSymbol (tk_String);
+							ACS_Node *node = new ACS_Node(NODE_VARIABLE, DemandSymbol (tk_String));
 							PC_AppendCmd (PCD_PUSHNUMBER);
-							switch (sym->type)
+							switch (node->type)
 							{
 							case SY_SCRIPTVAR:
 								PC_AppendInt(sym->info.var.index | OUTVAR_SCRIPT_SPEC);
@@ -2044,7 +2043,7 @@ static void ProcessInternFunc(symbolNode_t *sym)
 		bool useintform = false;
 		pcd_t shortpcd;
 
-		switch (sym->info.internFunc.directCommand)
+		switch (node->cmd->DirectCMD)
 		{
 		case PCD_DELAYDIRECT:
 			shortpcd = PCD_DELAYDIRECTB;
@@ -2096,9 +2095,9 @@ static void ProcessInternFunc(symbolNode_t *sym)
 //
 //==========================================================================
 
-static void LeadingScriptFunc(symbolNode_t *sym)
+static void LeadingScriptFunc(ACS_Node *node)
 {
-	ProcessScriptFunc(sym, true);
+	ProcessScriptFunc(node, true);
 	TK_TokenMustBe(TK_SEMICOLON, ERR_MISSING_SEMICOLON);
 	TK_NextToken();
 }
@@ -2110,7 +2109,7 @@ static void LeadingScriptFunc(symbolNode_t *sym)
 //
 //==========================================================================
 
-static void ProcessScriptFunc(symbolNode_t *sym, bool discardReturn)
+static void ProcessScriptFunc(ACS_Node *sym, bool discardReturn)
 {
 	int i;
 	int argCount;
@@ -3097,7 +3096,7 @@ static bool ContinueAncestor()
 
 static void LeadingIncDec(tokenType_t token)
 {
-	symbolNode_t *sym;
+	ACS_Node *sym;
 
 	MS_Message(MSG_DEBUG, "---- LeadingIncDec ----\n");
 	TK_NextTokenMustBe(TK_IDENTIFIER, ERR_INCDEC_OP_ON_NON_VAR);
@@ -3144,7 +3143,7 @@ static void LeadingIncDec(tokenType_t token)
 //
 //==========================================================================
 
-static void LeadingVarAssign(symbolNode_t *sym)
+static void LeadingVarAssign(ACS_Node *sym)
 {
 	bool done;
 	tokenType_t assignToken;
@@ -3223,7 +3222,7 @@ static void LeadingVarAssign(symbolNode_t *sym)
 //
 //==========================================================================
 
-static pcd_t GetAssignPCD(tokenType_t token, symbolType_t symbol)
+static pcd_t GetAssignPCD(tokenType_t token, int symbol)
 {
 	size_t i, j;
 	static tokenType_t tokenLookup[11] =
@@ -3233,7 +3232,7 @@ static pcd_t GetAssignPCD(tokenType_t token, symbolType_t symbol)
 		TK_ANDASSIGN, TK_EORASSIGN, TK_ORASSIGN,
 		TK_LSASSIGN, TK_RSASSIGN
 	};
-	static symbolType_t symbolLookup[] =
+	static int symbolLookup[] =
 	{
 		SY_SCRIPTVAR, SY_MAPVAR, SY_WORLDVAR, SY_GLOBALVAR, SY_MAPARRAY,
 		SY_WORLDARRAY, SY_GLOBALARRAY
@@ -3536,7 +3535,7 @@ static void ExprLineSpecial()
 
 static void ExprFactor()
 {
-	symbolNode_t *sym;
+	ACS_Node *sym;
 	tokenType_t opToken;
 
 	switch(tk_Token)
@@ -3977,7 +3976,7 @@ static pcd_t TokenToPCD(tokenType_t token)
 //
 //==========================================================================
 
-static pcd_t GetPushVarPCD(symbolType_t symType)
+static pcd_t GetPushVarPCD(int symType)
 {
 	switch(symType)
 	{
@@ -4007,13 +4006,13 @@ static pcd_t GetPushVarPCD(symbolType_t symType)
 //
 //==========================================================================
 
-static pcd_t GetIncDecPCD(tokenType_t token, symbolType_t symbol)
+static pcd_t GetIncDecPCD(tokenType_t token, int symbol)
 {
 	int i;
 	static struct
 	{
 		tokenType_t token;
-		symbolType_t symbol;
+		int symbol;
 		pcd_t pcd;
 	}  incDecLookup[] =
 	{
@@ -4053,7 +4052,7 @@ static pcd_t GetIncDecPCD(tokenType_t token, symbolType_t symbol)
 //
 //==========================================================================
 
-static void ParseArrayIndices(symbolNode_t *sym, int requiredIndices)
+static void ParseArrayIndices(ACS_Node *sym, int requiredIndices)
 {
 	bool warned = false;
 	int i;
@@ -4215,7 +4214,7 @@ static void ProcessArrayLevel(int level, int *entry, int ndim,
 //
 //==========================================================================
 
-static void InitializeArray(symbolNode_t *sym, int dims[MAX_ARRAY_DIMS], int size)
+static void InitializeArray(ACS_Node *sym, int dims[MAX_ARRAY_DIMS], int size)
 {
 	static int *entries = NULL;
 	static int lastsize = -1;
@@ -4244,9 +4243,9 @@ static void InitializeArray(symbolNode_t *sym, int dims[MAX_ARRAY_DIMS], int siz
 //
 //==========================================================================
 
-static symbolNode_t *DemandSymbol(char *name)
+static ACS_Node *DemandSymbol(string name)
 {
-	symbolNode_t *sym;
+	ACS_Node *sym;
 
 	if((sym = SY_Find(name)) == NULL)
 	{
@@ -4261,9 +4260,9 @@ static symbolNode_t *DemandSymbol(char *name)
 //
 //==========================================================================
 
-static symbolNode_t *SpeculateSymbol(char *name, bool hasReturn)
+static ACS_Node *SpeculateSymbol(string name, bool hasReturn)
 {
-	symbolNode_t *sym;
+	ACS_Node *sym;
 
 	sym = SY_Find(name);
 	if(sym == NULL)
@@ -4292,9 +4291,9 @@ static symbolNode_t *SpeculateSymbol(char *name, bool hasReturn)
 //
 //==========================================================================
 
-static symbolNode_t *SpeculateFunction(const char *name, bool hasReturn)
+static ACS_Node *SpeculateFunction(const string name, bool hasReturn)
 {
-	symbolNode_t *sym;
+	ACS_Node *sym;
 	
 	MS_Message(MSG_DEBUG, "---- SpeculateFunction %s ----\n", name);
 	sym = SY_InsertGlobal(tk_String, SY_SCRIPTFUNC);
@@ -4315,7 +4314,7 @@ static symbolNode_t *SpeculateFunction(const char *name, bool hasReturn)
 //
 //==========================================================================
 
-static void UnspeculateFunction(symbolNode_t *sym)
+static void UnspeculateFunction(ACS_Node *sym)
 {
 	prefunc_t *fillin;
 	prefunc_t **prev;
@@ -4364,7 +4363,7 @@ static void UnspeculateFunction(symbolNode_t *sym)
 //
 //==========================================================================
 
-static void AddScriptFuncRef(symbolNode_t *sym, int address, int argcount)
+static void AddScriptFuncRef(ACS_Node *sym, int address, int argcount)
 {
 	prefunc_t *fillin = new prefunc_t;
 	fillin->next = NULL;

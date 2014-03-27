@@ -24,6 +24,9 @@
 
 #define VAR_INTERNAL	4
 
+#define DEPTH_MAP_LEVEL	0
+#define DEPTH_NONE		-1
+
 // TYPES -------------------------------------------------------------------
 
 struct ACS_Object;
@@ -49,8 +52,46 @@ using FunCallList = vector<ACS_FuncCall>;
 using DepthList = vector<ACS_DepthRoot>;
 using NodeList = vector<ACS_Node>;
 
+template <class type>
+class ACS_IndexedObject
+{
+public:
+
+	int index;			// Index in list
+
+protected:
+
+	vector<type> &list;
+
+	void initList(vector<type> &list)
+	{
+		set(list);
+		index = -1;
+	}
+
+	// Places a copy in the list, sets the index on the copy and this
+	void addListItem()
+	{
+		list.add((type)this);
+		index = ((ACS_IndexedObject)list.lastAdded()).index = list.lastIndex();
+	}
+
+	// Creates a named instance in the list, sets the index on the instance
+	static void setListItem(string name)
+	{
+		list.add(type(name));
+		list.lastAdded().index = list.lastIndex();
+	}
+	static void setListItem(int index)
+	{
+		list.add(type(index, false));
+		list.lastAdded().index = list.lastIndex();
+	}
+};
+
 enum NodeTypes : int
 {
+	NODE_UNKNOWN = -1,
 	NODE_FUNCTION,
 	NODE_VARIABLE,
 	NODE_ARRAY
@@ -58,16 +99,27 @@ enum NodeTypes : int
 
 struct ACS_VarRef
 {
-	string name;		// Name of member
-	int type;			// Index of variable type
+	string name;			// Name of member
+	int type;				// Index of variable type
 };
 
-struct ACS_TypeDef
+class ACS_TypeDef : public ACS_IndexedObject<ACS_TypeDef>
 {
+protected:
+
+	void init()
+	{
+		size = 1;
+		hasMembers = false;
+		hasParent = false;
+		initList(acs_Types);
+	}
+
+public:
+
 	string type;			// Name of struct / typedef
 	int size;				// Size of struct / typedef
 	int parent;				// Index of parent struct / typedef
-	int index;				// Index of this struct / typedef
 
 	VarRefList members;		// Defined member list
 	FunctList methods;		// Index of defined method
@@ -80,6 +132,7 @@ struct ACS_TypeDef
 	// Creates a new data type and defines all objects within
 	ACS_TypeDef(string type, FunctList methods, FunctList constructors, FunctList operators, VarRefList members)
 	{
+		init();
 		set(type);
 		set(members);
 		set(methods);
@@ -87,12 +140,12 @@ struct ACS_TypeDef
 		set(operators);
 		size = calcSSize();
 		hasMembers = true;
-		hasParent = false;
 		addListItem();
 	}
 	// Creates a copy of a different type
 	ACS_TypeDef(string type, int parent)
 	{
+		init();
 		set(type);
 		members = acs_Types[parent].members;
 		methods = acs_Types[parent].methods;
@@ -106,11 +159,8 @@ struct ACS_TypeDef
 	// Creates a new empty data type
 	ACS_TypeDef(string type)
 	{
+		init();
 		set(type);
-		size = 1;
-
-		hasMembers = false;
-		hasParent = false;
 	}
 
 	static void Init(string type)
@@ -121,19 +171,6 @@ struct ACS_TypeDef
 	//TODO: Add method of adding objects when inheriting
 
 protected:
-
-	static void setListItem(string type)
-	{
-		acs_Types.add(ACS_TypeDef(type));
-		acs_Types.lastAdded().index = acs_Types.lastIndex();
-	}
-
-	void addListItem()
-	{
-		acs_Types.add(*this);
-		index = acs_Types.lastIndex;
-		acs_Types[index].index = index;
-	}
 
 	int calcSSize()
 	{
@@ -150,28 +187,42 @@ protected:
 };
 
 // Base class for acs objects
-struct ACS_Object
+class ACS_Object
 {
+protected:
+
+	void init()
+	{
+		depth = DEPTH_NONE;
+		isDeclared = false;
+		isImported = false;
+	}
+
+public:
+
 	string name;		// Name of object in source
-	int index;			// Index in list
 	int depth;			// Depth index
 
 	bool isDeclared;	// Is it declared yet?
 	bool isImported;	// Was this item imported?
-
-protected:
-
-	template <class ACS_ObjectType, vector<ACS_ObjectType> list>
-	static void setListItem(string type)
-	{
-		list.add(ACS_TypeDef(type));
-		list.lastAdded().index = acs_Types.lastIndex();
-	}
 };
 
-// Class for all defined variables
-struct ACS_Var : public ACS_Object
+// Class to provide ACS_Var, and others, with data
+class ACS_VarData : public ACS_Object
 {
+protected:
+
+	void init()
+	{
+		ACS_Object::init();
+		type = VAR_VOID;
+		isDeleted = isAssigned = false;
+		isStatic = isConst = false;
+		isWorld = isGlobal = false;
+	}
+
+public:
+
 	int type;			// Type of variable / Return type
 
 	bool isDeleted;		// Has 'delete' been called on it?
@@ -181,55 +232,50 @@ struct ACS_Var : public ACS_Object
 	bool isWorld;		// Is this a world var?
 	bool isGlobal;		// Is this a global var?
 
-	// Undefined Variable
-	ACS_Var()
-	{
-		index = -1;
-		type = VAR_NULL;
-		isDeleted = false;
-		isDeclared = false;
-		isAssigned = false;
-		isImported = false;
-		isStatic = false;
-		isConst = false;
-		isWorld = isGlobal = false;
-	}
-	// Undefined Usage (Error, but keep going)
-	ACS_Var(string name, bool assigned = false)
-	{
-		this->name = name;
-		type = VAR_NULL;
-		depth = 0;
-		isStatic = false;
-		isDeleted = false;
-		isImported = false;
-		isDeclared = false;
-		isConst = false;
-		isAssigned = assigned;
-		isWorld = isGlobal = false;
-	}
-	// Standard Declaration
-	ACS_Var(string name, int type, int depth, bool isAssigned = false, bool assignIndex = true)
-	{
-		this->name = name;
-		if (assignIndex) // Arrays and structs must assign differently, allocating more space per unit.
-			index = getNewIndex();
-		this->type = type;
-		this->depth = depth;
-		isStatic = false;
-		isDeleted = false;
-		isImported = false;
-		isDeclared = true;
-		isConst = false;
-		this->isAssigned = isAssigned;
-		isWorld = isGlobal = false;
-	}
-	//TODO: Add Global and World Declarations
-
 	int size()
 	{
 		return acs_Types[type].size;
 	}
+};
+
+// Class for all defined variables
+class ACS_Var : public ACS_VarData, public ACS_IndexedObject<ACS_Var>
+{
+protected:
+
+	void init()
+	{
+		ACS_VarData::init();
+		initList(acs_Variables);
+	}
+
+public:
+
+	// Undefined Variable
+	ACS_Var()
+	{
+		init();
+	}
+	// Undefined Usage (Error, but keep going)
+	ACS_Var(string name, bool isAssigned = false)
+	{
+		init();
+		set(name);
+		set(isAssigned);
+	}
+	// Standard Declaration
+	ACS_Var(string name, int type, int depth, bool isAssigned = false, bool assignIndex = true)
+	{
+		init();
+		set(name);
+		set(type);
+		set(depth);
+		isDeclared = true;
+		set(isAssigned);
+		if (assignIndex)	// Arrays and structs must assign differently, allocating more space per unit.
+			addListItem();
+	}
+	//TODO: Add Global and World Declarations
 
 	// Returns true if the item was marked as deleted,
 	// false if it was already deleted
@@ -240,53 +286,58 @@ struct ACS_Var : public ACS_Object
 			ERR_Error(ERR_ALREADY_DELETED, false, name, tk_Line);
 			return false;
 		}
-		isDeleted = true;
-		return true;
-	}
-
-protected: // These shouldn't be called outside of the struct
-
-	// Gets a new index, and stores the variable in the vector
-	int getNewIndex()
-	{
-		return 0; //TODO: Add index getter.
+		return lib(isDeleted) = true;
 	}
 };
 
 // Class for preprocessor defines
-struct ACS_Const : public ACS_Object
+class ACS_Const : public ACS_Object, public ACS_IndexedObject<ACS_Const>
 {
+protected:
+
+	void init()
+	{
+		ACS_Object::init();
+		initList(acs_Constants);
+	}
+
+public:
+
 	string content;		// Content to replace with
 	bool isLibDefine;	// Was this defined with libdefine?
 
 	//Undefined Constant
 	ACS_Const()
 	{
-		index = -1;
-		isDeclared = false;
+		init();
 	}
 	//Standard Declaration
-	ACS_Const(string name, string content, bool isLibDefine = false)
+	ACS_Const(string name, string content, bool isLibDefine = false, bool isImported = false)
 	{
-		this->name = name;
-		this->content = content;
-		index = 0; //TODO: Set up indexing for constants!
-		this->isLibDefine = isLibDefine;
+		init();
+		set(name);
+		set(content);
+		set(isLibDefine);
+		set(isImported);
 		isDeclared = true;
-		isImported = false; // TODO: Check for import for constants!
+		addListItem();
 	}
 };
 
 // Class for defined functions
-class ACS_Function : public ACS_Var
+class ACS_Function : public ACS_VarData, public ACS_IndexedObject<ACS_Function>
 {
 protected:
 
-	void addListItem()
+	void init()
 	{
-		acs_Functions.add(*this);
-		index = acs_Functions.lastIndex();
-		acs_Functions[index].index = index;
+		ACS_VarData::init();
+		isOperator = isSpecial = isMember = isInline = isLatent = false;
+		isUserDefined = false;
+		optMask = outMask = 0;
+		DirectCMD = StackCMD = PCD_NOP;
+		OperatorType = TypeAssigned = NULL;
+		initList(acs_Functions);
 	}
 
 public:
@@ -306,25 +357,30 @@ public:
 	bool isLatent;				// Does this function cause a delay or wait?
 	bool isMember;				// Is this function restricted to a type?
 	bool isUserDefined;			// Was this written by the user?
-	bool IsInline;				// Is this function going to be placed inline?
+	bool isInline;				// Is this function going to be placed inline?
 
+	// Use for an empty function
+	ACS_Function(string name)
+	{
+		init();
+		set(name);
+		isUserDefined = true;
+	}
 	// Use for defining old style internal functions
 	// Warning: Using this constructor will add an additional function
 	ACS_Function(string name, pcd_t DirectCMD, pcd_t StackCMD, int argCount, int optMask, int outMask, bool returns, bool isLatent)
 	{
+		init();
 		set(name);
 		set(DirectCMD);
 		set(StackCMD);
 		argTypes.assign(argCount, VAR_INT);
 		set(isLatent);
-		type = (returns) ? VAR_INT : VAR_NULL;
+		type = (returns) ? VAR_INT : VAR_VOID;
 		//TODO: Figure out 'outmask' / 'optmask'
 		set(optMask);
 		set(outMask);
-		depth = 0;
-		isUserDefined = false;
-		IsInline = false;
-		isSpecial = false;
+		depth = DEPTH_MAP_LEVEL;
 		addListItem();
 		setOperator(0, 0, false);
 	}
@@ -338,8 +394,6 @@ public:
 		set(StackCMD);
 		set(type);
 		set(argTypes);
-		IsInline = false;
-		isSpecial = false;
 		isUserDefined = true;
 		addListItem();
 		setOperator(0, 0, false);
@@ -347,21 +401,21 @@ public:
 
 	void setOperator(int OperatorType, int TypeAssigned, bool isOperator = true)
 	{
-		libset(acs_Functions, isOperator);
-		isMember = isOperator;
-		libset(acs_Functions, OperatorType);
-		libset(acs_Functions, TypeAssigned);
+		libset(isOperator);
+		lib(isMember) = isOperator;
+		libset(OperatorType);
+		libset(TypeAssigned);
 	}
 
 	void setMethod(int TypeAssigned)
 	{
-		lib(acs_Functions, isMember) = true;
-		libset(acs_Functions, TypeAssigned);
+		lib(isMember) = true;
+		libset(TypeAssigned);
 	}
 
 	void setInline()
 	{
-		lib(acs_Functions, IsInline) = true;
+		lib(isInline) = true;
 	}
 };
 
@@ -372,16 +426,37 @@ struct ACS_FuncCall
 	VarRefList args;			// Arguments
 };
 
-class ACS_Array : public ACS_Var
+class ACS_Array : public ACS_VarData, public ACS_IndexedObject<ACS_Array>
 {
+protected:
+
+	void init()
+	{
+		ACS_VarData::init();
+		dimAmt = 0;
+		size = calcASize();
+		initList(acs_Arrays);
+	}
+
 public:
 	int size, dimAmt;
 	int dimensions[MAX_ARRAY_DIMS];
 
-	ACS_Array(string name, int type, int depth, bool isAssigned = false) : ACS_Var(name, type, depth, isAssigned, false)
+	// Undefined Variable
+	ACS_Array()
 	{
-		dimAmt = 0;
-		size = calcASize();
+		init();
+	}
+	// Undefined Usage (Error, but keep going)
+	ACS_Array(string name, bool isAssigned = false)
+	{
+		init();
+		set(name);
+		set(isAssigned);
+	}
+	ACS_Array(string name, int type, int depth, bool isAssigned = false)
+	{
+		init();
 	}
 
 	void setDimension(int value)
@@ -389,30 +464,26 @@ public:
 		if (value < 1)
 		{
 			ERR_Error(ERR_INVALID_ARRAY_SIZE, false);
+			value = 1;
 		}
-		if (dimAmt >= 8)
+		if (dimAmt >= MAX_ARRAY_DIMS)
 		{
 			ERR_Error(ERR_TOO_MANY_ARRAY_DIMS, false);
 			return;
 		}
-		dimensions[dimAmt++] = value;
-		size = calcASize();
+		lib(dimensions[dimAmt]) = value;
+		dimAmt++;
+		lib(size) = calcASize();
 	}
 
-	void setIndex()
+	bool Delete()
 	{
-		// TODO: In list, 'filler' items that hold no data,
-		// but simply point to the first index.
-		// Investigate how they are currently implemented.
-
-		acs_Arrays.add(*this);
-		index = acs_Arrays.lastIndex;
-		lib(acs_Arrays, index);
-	}
-
-	int size()
-	{
-		return size;
+		if (isDeleted)
+		{
+			ERR_Error(ERR_ALREADY_DELETED, false, name, tk_Line);
+			return false;
+		}
+		return lib(isDeleted) = true;
 	}
 
 protected:
@@ -434,7 +505,12 @@ class ACS_Node
 {
 protected:
 
-	ACS_Object * obj;	// Pointer to a basic version of the contents
+	void init()
+	{
+		type = NODE_UNKNOWN;
+		cmd = NULL; var = NULL;
+		arr = NULL;
+	}
 
 public:
 
@@ -446,64 +522,78 @@ public:
 	ACS_Node(NodeTypes type, int index)
 	{
 		set(type);
-		set(index);
 
 		switch (type)
 		{
 		case NODE_FUNCTION:
-			*obj = *cmd = acs_Functions[index];
+			cmd = &acs_Functions[index];
 			break;
 		case NODE_ARRAY:
-			*obj = *arr = acs_Arrays[index];
+			arr = &acs_Arrays[index];
 			break;
 		case NODE_VARIABLE:
-			*obj = *var = acs_Variables[index];
+			var = &acs_Variables[index];
+			break;
+		}
+	}
+	ACS_Node(int type, string name)
+	{
+		set(type);
+
+		switch (type)
+		{
+		case NODE_FUNCTION:
+			cmd = new ACS_Function(name);
+			break;
+		case NODE_ARRAY:
+			arr = new ACS_Array(name);
+			break;
+		case NODE_VARIABLE:
+			var = new ACS_Var(name);
 			break;
 		}
 	}
 
-#define PUBLIC_GET(type, member) type member() { return obj->member; }
+#define PUBLIC_GET_SET(type, member) type member() { return obj->member; } void member(type value) { obj->member = value; }
 
-	PUBLIC_GET(string, name);
-	PUBLIC_GET(int, index);
-	PUBLIC_GET(bool, isDeclared);
-	PUBLIC_GET(bool, isImported);
-	PUBLIC_GET(int, depth);
+	PUBLIC_GET_SET(string, name);
+	PUBLIC_GET_SET(bool, isDeclared);
+	PUBLIC_GET_SET(bool, isImported);
+	PUBLIC_GET_SET(int, depth);
+	PUBLIC_GET_SET(int, index);
 
-#undef PUBLIC_GET
+#undef PUBLIC_GET_SET
+
+	void clear()
+	{
+		init();
+	}
 };
 
-class ACS_DepthRoot
+class ACS_DepthRoot : public ACS_IndexedObject<ACS_DepthRoot>
 {
 protected:
 
 	int parent;
-	int current;
 
-	void addListItem()
+	void init()
 	{
-		acs_Depths.add(*this);
-		acs_Depths.lastAdded().current = current = acs_Depths.lastIndex;
-	}
-
-	static void setListItem(int parent)
-	{
-		acs_Depths.add(ACS_DepthRoot());
-		acs_Depths.lastAdded().parent = parent;
-		acs_Depths.lastAdded().current = acs_Depths.lastIndex();
+		initList(acs_Depths);
+		parent = DEPTH_NONE;
+		index = DEPTH_NONE;
 	}
 
 public:
 	ACS_DepthRoot()
 	{
-		parent = 0;
-		current = 0;
+		init();
 	}
 	// Warning: Using this constructor will add an additional depth index
-	ACS_DepthRoot(int parent)
+	ACS_DepthRoot(int parent, bool add = true)
 	{
+		init();
 		set(parent);
-		addListItem();
+		if(add) addListItem();
 	}
 
 	static void Init(int parent)
@@ -518,7 +608,7 @@ public:
 
 	int Current()
 	{
-		return current;
+		return index;
 	}
 };
 

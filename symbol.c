@@ -25,7 +25,7 @@
 static ACS_Node *Find(string name, ACS_Node *root);
 static ACS_Node *Insert(string name, int type, ACS_Node **root);
 static void FreeNodes(ACS_Node *root);
-static void FreeNodesAtDepth(ACS_Node **root, int depth);
+static void FreeNodesAtDepth(int depth);
 static void DeleteNode(ACS_Node *node, ACS_Node **parent_p);
 static void ClearShared(ACS_Node *root);
 
@@ -268,7 +268,7 @@ ACS_Node *SY_FindGlobal(string name)
 			else
 			{
 				pa_MapVarCount++;
-				PC_NameMapVariable(node->index, node);
+				PC_NameMapVariable(node->index(), node);
 			}
 		}
 		else if(node->type == NODE_ARRAY)
@@ -294,7 +294,7 @@ ACS_Node *SY_FindGlobal(string name)
 //==========================================================================
 ACS_Node *SY_FindLocal(string name)
 {
-	return Find(name, CurrentDepthIndex);
+	return Find(name, pa_CurrentDepth);
 }
 
 //==========================================================================
@@ -371,13 +371,12 @@ ACS_Node *SY_InsertGlobalUnique(string name, int type)
 static ACS_Node *Insert(string name, int type)
 {
 	int compare;
-	ACS_Node *node;
+	ACS_Node *node = new ACS_Node(type, name);
 
-	node = new ACS_Node(type, name);
-	node->imported = ImportMode == IMPORT_Importing;
+	node->isImported(ImportMode == IMPORT_Importing);
 
 	acs_Nodes.add(*node);
-	return(acs_Nodes.lastAdded);
+	return(&acs_Nodes.lastAdded());
 }
 
 //==========================================================================
@@ -389,13 +388,11 @@ void SY_FreeLocals()
 {
 	for each (ACS_Node &node in acs_Nodes)
 	{
-		if(node.depth == CurrentDepthIndex)
+		if(node.depth == pa_CurrentDepth)
 			FreeNodes(&node);
 		//delete node? why? It's not like an acs script is going to eat a gig of memory
 	}
 	MS_Message(MSG_DEBUG, "Freeing local identifiers\n");
-	(LocalRoot);
-	LocalRoot = NULL;
 }
 
 //==========================================================================
@@ -417,11 +414,7 @@ void SY_FreeGlobals()
 //==========================================================================
 static void FreeNodes(ACS_Node *root)
 {
-	if(root == NULL)
-		return;
-	
-	free(root->name);
-	free(root);
+	delete root;
 }
 
 //==========================================================================
@@ -509,17 +502,11 @@ void SY_ClearShared()
 //
 //==========================================================================
 
-static void ClearShared(symbolNode_t *root)
+static void ClearShared(ACS_Node *node)
 {
-	while(root != NULL)
+	for each (ACS_Node &iter in acs_Nodes)
 	{
-		if( root->type == SY_SCRIPTFUNC ||
-			root->type == SY_MAPVAR ||
-			root->type == SY_MAPARRAY)
-		{
-			root->unused = true;
-		}
-		ClearShared(root->left);
-		root = root->right;
+		if (node->depth == iter.depth)
+			iter.clear();
 	}
 }

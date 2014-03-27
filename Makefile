@@ -52,12 +52,15 @@ SRCS = \
 	acc.dsw
 
 ACS = \
-	zcommon.acs		\
-	zdefs.acs		\
-	zspecial.acs	\
-	zprops.acs		\
-	zstruct.acs		\
-	ztypes.acs
+	Headers/zcommon.acs		\
+	Headers/zdefs.acs		\
+	Headers/zspecial.acs	\
+	Headers/zprops.acs		\
+	Headers/zstruct.acs		\
+	Headers/ztypes.acs		\
+	Headers/Actor.acs		\
+	Headers/Tid.acs			\
+	Headers/Fixed.acs
 
 $(EXENAME) : $(OBJS)
 	$(CC) $(OBJS) -o $(EXENAME) $(LDFLAGS)

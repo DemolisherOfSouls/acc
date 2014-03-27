@@ -4,21 +4,9 @@
 //**
 //**************************************************************************
 
-#define _FixedShift 16*16*16*16
-
-typedef int fixed;
-
-method fixed toFixed()
-{
-	return (this * _FixedShift);
-}
 method int toInt()
 {
 	return (this / _FixedShift);
-}
-fixed operator = (int i)
-{
-	return i.toFixed()
 }
 
 typedef int tid;

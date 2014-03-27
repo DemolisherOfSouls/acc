@@ -9,9 +9,8 @@
 
 #include <iostream>
 #include <fstream>
-#include <stdio.h>
-#include <stdlib.h>
-#include <ctype.h>
+#include <cstdio>
+#include <cstdlib>
 #include "common.h"
 #include "token.h"
 #include "error.h"
@@ -68,12 +67,9 @@ static string ObjectFileName;
 // main
 //
 //==========================================================================
-
 int main(int argc, char **argv)
 {
 	std::set_new_handler(ERR_BadAlloc);
-
-	int i;
 
 	ArgCount = argc;
 	ArgVector = argv;
@@ -95,7 +91,7 @@ int main(int argc, char **argv)
 
 
 
-	for (i = 0; pa_TypedScriptCounts[i].TypeName; i++)
+	for (int i = 0; pa_TypedScriptCounts[i].TypeName; i++)
 	{
 		if (pa_TypedScriptCounts[i].TypeCount > 0)
 		{
@@ -117,22 +113,19 @@ int main(int argc, char **argv)
 // DisplayBanner
 //
 //==========================================================================
-
 static void DisplayBanner()
 {
-	cerr << //TODO: Finish this conversion
-	fprintf(stderr, "\nOriginal ACC Version 1.10 by Ben Gokey\n");
-	fprintf(stderr, "Copyright (c) "COPYRIGHT_YEARS_TEXT
-		" Raven Software, Corp.\n\n");
-	fprintf(stderr, "This is version "VERSION_TEXT" ("__DATE__")\n");
-	fprintf(stderr, "This software is not supported by Raven Software or Activision\n");
-	fprintf(stderr, "ZDoom changes and language extensions by Randy Heit\n");
-	fprintf(stderr, "Further changes by Brad Carney\n");
-	fprintf(stderr, "Even more changes by James Bentler\n");
-	fprintf(stderr, "Some additions by Michael \"Necromage\" Weber\n");
-	fprintf(stderr, "Error reporting improvements and limit expansion by Ty Halderman\n");
-	fprintf(stderr, "Include paths added by Pascal vd Heiden\n");
-	fprintf(stderr, "Additional operators, structs, and methods added by J. Ryan \"DemolisherOfSouls\" Taylor");
+	cerr << "\nOriginal ACC Version 1.10 by Ben Gokey\n"
+		<< "Copyright (c) "COPYRIGHT_YEARS_TEXT" Raven Software, Corp.\n\n"
+		<< "This is version "VERSION_TEXT" ("__DATE__")\n"
+		<< "This software is not supported by Raven Software or Activision\n"
+		<< "ZDoom changes and language extensions by Randy Heit\n"
+		<< "Further changes by Brad Carney\n"
+		<< "Even more changes by James Bentler\n"
+		<< "Some additions by Michael \"Necromage\" Weber\n"
+		<< "Error reporting improvements and limit expansion by Ty Halderman\n"
+		<< "Include paths added by Pascal vd Heiden\n"
+		<< "Additional operators, structs, and methods added by J. Ryan \"DemolisherOfSouls\" Taylor\n";
 }
 
 //==========================================================================
@@ -140,7 +133,6 @@ static void DisplayBanner()
 // Init
 //
 //==========================================================================
-
 static void Init()
 {
 	short endianTest = 1;

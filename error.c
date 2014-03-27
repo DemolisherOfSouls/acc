@@ -9,6 +9,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <cstdio>
 #include "common.h"
 #include "error.h"
 #include "token.h"
@@ -354,12 +355,7 @@ void ERR_ErrorV(int error, bool info, va_list args)
 	}
 	if(error != ERR_NONE)
 	{
-		string text = ErrorText(error);
-		if(!text.empty())
-		{
-			veprintf(text, args);
-		}
-		ErrorFile << '\n';
+		ErrorFile << ErrorText(error) << args << '\n';
 		if(showLine)
 		{
 			// deal with master source line and position indicator - Ty 07jan2000
@@ -379,6 +375,21 @@ void ERR_ErrorV(int error, bool info, va_list args)
 void ERR_RemoveErrorFile()
 {
 	remove(ErrorFileName().c_str());
+}
+
+//==========================================================================
+//
+// ERR_VerifyUserErrorFile
+//
+//==========================================================================
+void ERR_VerifyUserErrorFile()
+{
+	string& file = UserErrorFileName;
+
+	if (file.empty())
+		file = ERROR_FILE_NAME;
+	else
+		MS_SuggestFileExt(file, ".err");
 }
 
 //==========================================================================

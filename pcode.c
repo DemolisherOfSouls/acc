@@ -1,4 +1,3 @@
-
 //**************************************************************************
 //**
 //** pcode.c
@@ -7,10 +6,7 @@
 
 // HEADER FILES ------------------------------------------------------------
 
-#include <string>
-#include <cstddef>
-#include <vector>
-#include <stdio.h>
+#include <iostream>
 #include "pcode.h"
 #include "common.h"
 #include "error.h"
@@ -19,6 +15,8 @@
 #include "token.h"
 #include "symbol.h"
 #include "parse.h"
+
+using std::cerr;
 
 // MACROS ------------------------------------------------------------------
 
@@ -543,8 +541,8 @@ void PC_CloseObject()
 		}
 		if(pc_WarnNotHexen)
 		{
-			fprintf(stderr, "\nThese scripts have been upgraded because they use new features.\n"
-							"They will not be compatible with Hexen.\n");
+			cerr << "\nThese scripts have been upgraded because they use new features.\n"
+				<< "They will not be compatible with Hexen.\n";
 		}
 		CloseNew();
 	}
@@ -566,12 +564,10 @@ void PC_CloseObject()
 
 static void CloseOld()
 {
-	int i;
-
 	STR_WriteStrings();
 	PC_WriteInt(pc_Address, 4);
 	PC_AppendInt(pc_ScriptCount);
-	for(i = 0; i < pc_ScriptCount; ++i)
+	for(int i = 0; i < pc_ScriptCount; ++i)
 	{
 		scriptInfo_t *info = &ScriptInfo[i];
 		MS_Message(MSG_DEBUG, "Script %d, address = %d, arg count = %d\n",
@@ -911,18 +907,18 @@ static void CloseNew()
 	}
 
 	// Record libraries imported by this object.
-	if(NumImports > 0)
+	if(Imports.size() > 0)
 	{
 		count = 0;
-		for(i = 0; i < NumImports; ++i)
+		for (i = 0; i < Imports.size(); ++i)
 		{
-			count += strlen(Imports[i]) + 1;
+			count += Imports[i].length() + 1;
 		}
 		if(count > 0)
 		{
 			PC_Append("LOAD", 4);
 			PC_AppendInt(count);
-			for(i = 0; i < NumImports; ++i)
+			for (i = 0; i < Imports.size(); ++i)
 			{
 				PC_AppendString(Imports[i]);
 			}
@@ -1018,21 +1014,6 @@ static void RecordDummyScripts()
 			j++;
 		}
 	}
-}
-
-//==========================================================================
-//
-// GrowBuffer
-//
-//==========================================================================
-
-void GrowBuffer()
-{
-	ptrdiff_t buffpos = pc_BufferPtr - pc_Buffer;
-
-	BufferSize *= 2;
-	grow(pc_Buffer, byte, BufferSize);
-	pc_BufferPtr = pc_Buffer + buffpos;
 }
 
 //==========================================================================
@@ -1526,9 +1507,9 @@ void PC_InitArray(int index, int *entries, bool hasStrings)
 //
 //==========================================================================
 
-int PC_AddImport(char *name)
+int PC_AddImport(string name)
 {
-	if (NumImports >= MAX_IMPORTS)
+	if (Imports.size() >= MAX_IMPORTS)
 	{
 		ERR_Exit(ERR_TOO_MANY_IMPORTS, true);
 	}
@@ -1536,6 +1517,6 @@ int PC_AddImport(char *name)
 	{
 		ERR_Error(ERR_HEXEN_COMPAT, true);
 	}
-	strcpy(Imports[NumImports], name);
-	return NumImports++;
+	Imports[Imports.size()] = name; //add?
+	return Imports.size();
 }

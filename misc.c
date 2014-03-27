@@ -87,7 +87,7 @@ int MS_LittleUINT(int val)
 // MS_LoadFile
 //
 //==========================================================================
-void MS_LoadFile(string name, vector<char>& DataReference)
+void MS_LoadFile(const string & name, vector<char>& DataReference)
 {
 	if (name.length() >= MAX_FILE_NAME_LENGTH)
 		ERR_Exit(ERR_FILE_NAME_TOO_LONG, false, name);
@@ -117,12 +117,12 @@ void MS_LoadFile(string name, vector<char>& DataReference)
 // Pascal 21/11/08
 //
 //==========================================================================
-bool MS_FileExists(string name)
+bool MS_FileExists(const string & name)
 {
 	struct stat info;
 	int ret = stat(name.c_str(), &info);
 
-	return (ret == 0);
+	return (ret == NULL);
 }
 
 //==========================================================================
@@ -130,7 +130,7 @@ bool MS_FileExists(string name)
 // MS_SaveFile
 //
 //==========================================================================
-bool MS_SaveFile(string name, vector<char>& DataReference)
+bool MS_SaveFile(const string &name, vector<char>& DataReference)
 {
 	fstream file = fstream(name, ios::binary | ios::out | ios::trunc);
 	
@@ -152,7 +152,7 @@ bool MS_SaveFile(string name, vector<char>& DataReference)
 // MS_SuggestFileExt
 //
 //==========================================================================
-void MS_SuggestFileExt(string &base, string &extension)
+void MS_SuggestFileExt(string &base, string&& extension)
 {
 	int c = base.length();
 	
@@ -161,7 +161,7 @@ void MS_SuggestFileExt(string &base, string &extension)
 		if(base[c] == '.')
 			return;
 	}
-	base.append(extension);
+	base.append(move(extension));
 }
 
 //==========================================================================
@@ -210,10 +210,8 @@ bool MS_StripFilename(string &name)
 
 	while (!MS_IsDirectoryDelimiter(name[--c]))
 	{
-		if(c == 0)
-		{ // No directory delimiter
+		if(c == 0) // No directory delimiter
 			return false;
-		}
 	}
 	name = name.substr(0, c + 1);
 	return true;
@@ -250,7 +248,6 @@ template <class type, class type2>
 void MS_Message(msg_t msg, const string text, const type info, const type2 info2)
 {
 	MS_MSG_INIT(msg);
-	MS_MSG_CHECK(msg);
 	MS_MSG_WRITE(msg, text);
 	MS_MSG_WRITE(msg, info);
 	MS_MSG_WRITE(msg, info2);
@@ -261,7 +258,6 @@ template <class type, class type2, class type3>
 void MS_Message(msg_t msg, const string text, const type info, const type2 info2, const type3 info3)
 {
 	MS_MSG_INIT(msg);
-	MS_MSG_CHECK(msg);
 	MS_MSG_WRITE(msg, text);
 	MS_MSG_WRITE(msg, info);
 	MS_MSG_WRITE(msg, info2);
@@ -273,7 +269,6 @@ template <class type, class type2, class type3, class type4>
 void MS_Message(msg_t msg, const string text, const type info, const type2 info2, const type3 info3, const type4 info4)
 {
 	MS_MSG_INIT(msg);
-	MS_MSG_CHECK(msg);
 	MS_MSG_WRITE(msg, text);
 	MS_MSG_WRITE(msg, info);
 	MS_MSG_WRITE(msg, info2);
@@ -289,7 +284,7 @@ void MS_Message(msg_t msg, const string text, const type info, const type2 info2
 // Pascal 30/11/08
 //
 //==========================================================================
-bool MS_IsPathAbsolute(string name)
+bool MS_IsPathAbsolute(const string & name)
 {
 #if defined(_WIN32) || defined(__MSDOS__)
 	// In Windows, the second character must be : if it is an

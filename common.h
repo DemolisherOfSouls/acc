@@ -64,8 +64,8 @@
 
 // [JRT] Convenience macros
 #define set(member) this->member = member
-#define lib(list,member) list[index].member = member
-#define libset(list,member) list[index].member = set(member)
+#define lib(member) list[index].member = member
+#define libset(member) list[index].member = set(member)
 
 // TYPES -------------------------------------------------------------------
 
@@ -136,19 +136,38 @@ public:
 //[JRT] Slightly modified std::vector
 // Added input operator <<
 // Added last_index property
-// Added nextIndex property
+// Added nextIndex method
 template <class type> //Vector data type
 class vector : public std::vector<type>
 {
 protected:
 	int last_index;
 
+	using move_reference = type&&;
 	using reference = type&;
 	using pointer = type*;
 	using const_reference = const reference;
 	using const_pointer = const pointer;
 	using size_type = int;
 	using value_type = type;
+
+	void setLast(int value = size() - 1)
+	{
+		last_index = value;
+	}
+	void canReSize(int pos = size())
+	{
+		if (pos > capacity())
+			resize(pos + 1);
+		else if (pos == capacity())
+			resize();
+	}
+	
+	// Will not drop below zero
+	int tread(int index)
+	{
+		return ((index + abs(index)) / 2);
+	}
 
 public:
 
@@ -163,24 +182,21 @@ public:
 
 	vector() : std::vector() {}
 	vector(int size) : std::vector(size) {}
-	vector(const_reference rItem) : std::vector(rItem) {}
-	vector(type rItem) : std::vector(rItem) {}
+	//vector(const_reference rItem) : std::vector(rItem) {}
+	//vector(type rItem) : std::vector(rItem) {}
 
-	void operator<< (type rItem)
+	void operator<< (move_reference rItem)
+	{
+		add(rItem);
+	}
+	void operator<< (const_reference rItem)
 	{
 		add(rItem);
 	}
 	reference operator[] (int index)
 	{
-		if (index >= size())
-		{
-			resize(index + 1);
-		}
-		if (index < 0)
-		{
-			index = 0;
-		}
-		return at(index);
+		canReSize(index);
+		return at(tread(index));
 	}
 
 	int lastIndex()
@@ -197,33 +213,34 @@ public:
 		return at(last_index);
 	}
 
-	void add(type &&item)
+	void add(move_reference item)
 	{
 		push_back(item);
-		last_index = size() - 1;
+		setLast();
+	}
+	void add(const_reference item)
+	{
+		push_back(item);
+		setLast();
 	}
 
 	//Add item to index 'pos', moving the item there to the end if necessary
-	void prefer(int pos, type &&item)
+	void prefer(int pos, move_reference item)
 	{
+		canReSize(pos);			// Resize is needed
+
 		pointer spot = at(pos);
 
-		// Resize is needed
-		if (pos >= capacity())
-			resize();
-
-		// Check to see if position is filled
-		if (pos + 1 < size())
+		if (pos + 1 < size())	// Check to see if position is filled
 		{
-			//Add item in desired place to end,
-			//then assign the item to the desired place
-			add(at(pos));
-			spot = item;
-			last_index = pos;
+			add(*spot);			// Add item in desired place to end,
+			*spot = item;		// then assign the item to the desired place
+			setLast(pos);
 		}
 		else
 		{
-			spot = item;
+			*spot = item;		// Assign the item to the desired place
+			setLast(pos);
 		}
 	}
 	

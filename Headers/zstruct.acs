@@ -7,33 +7,6 @@
 #include "ztypes.acs"
 #include "zprops.acs"
 
-struct actor
-{
-	tid actorTID;
-	tid tracerTID;
-	tid masterTID;
-	tid targetTID;
-
-	int health,
-		maxhealth;
-
-	int height,
-		radius;
-
-	fixed x,y,z;
-
-	fixed angle,
-		  pitch,
-		  speed;
-
-	actor(tid id)
-	{
-		actorTID = id;
-		//health = GetActorProperty(id, APROP_Health);
-	}
-
-};
-
 struct coord2D
 {
 	fixed x, y;

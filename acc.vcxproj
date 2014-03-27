@@ -70,7 +70,7 @@
       <ObjectFileName>.\Debug/</ObjectFileName>
       <ProgramDataBaseFileName>.\Debug/</ProgramDataBaseFileName>
       <WarningLevel>Level3</WarningLevel>
-      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <SuppressStartupBanner>false</SuppressStartupBanner>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
@@ -90,11 +90,18 @@
       <ProgramDatabaseFile>.\Debug/acc.pdb</ProgramDatabaseFile>
       <SubSystem>Console</SubSystem>
       <TargetMachine>MachineX86</TargetMachine>
+      <LargeAddressAware>true</LargeAddressAware>
     </Link>
     <Bscmake>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <OutputFile>.\Debug/acc.bsc</OutputFile>
     </Bscmake>
+    <PreBuildEvent>
+      <Command>$(ProjectDir)PreBuild_Debug.bat</Command>
+    </PreBuildEvent>
+    <PreBuildEvent>
+      <Message>Copying Header Files...</Message>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Midl>
@@ -156,14 +163,58 @@
     <ClInclude Include="Token.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="zcommon.acs" />
-    <None Include="zdefs.acs" />
-    <None Include="zprops.acs" />
-    <None Include="zspecial.acs" />
-    <None Include="Makefile" />
-    <None Include="zstruct.acs" />
-    <None Include="ztypes.acs" />
-    <None Include="zwvars.acs" />
+    <CustomBuild Include="PreBuild_Debug.bat">
+      <FileType>Script</FileType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</DeploymentContent>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Copy Header Files</Message>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</LinkObjects>
+    </CustomBuild>
+    <CustomBuild Include="PreBuild_Release.bat">
+      <FileType>Script</FileType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</DeploymentContent>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Copy Header Files</Message>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</LinkObjects>
+    </CustomBuild>
+    <Text Include="Headers\Actor.acs">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</DeploymentContent>
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Headers\Fixed.acs">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</DeploymentContent>
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Headers\String.acs">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</DeploymentContent>
+      <FileType>Document</FileType>
+    </Text>
+    <None Include="Headers\zcommon.acs" />
+    <None Include="Headers\zdefs.acs" />
+    <None Include="Headers\zprops.acs" />
+    <None Include="Headers\zspecial.acs" />
+    <None Include="Headers\zstruct.acs" />
+    <None Include="Headers\ztypes.acs" />
+    <None Include="Headers\zwvars.acs" />
+    <None Include="Makefile">
+      <FileType>Makefile</FileType>
+      <DeploymentContent>false</DeploymentContent>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Icons\ACC.png">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</DeploymentContent>
+    </Image>
+    <Image Include="Icons\icon.ico">
+      <DeploymentContent>true</DeploymentContent>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Main.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
