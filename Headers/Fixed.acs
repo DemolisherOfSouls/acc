@@ -1,0 +1,69 @@
+//**************************************************************************
+//**
+//** Fixed.acs
+//**
+//** Class that contains a fixed point number. (+-2^15.2^16)?
+//**
+//**************************************************************************
+
+#include <string>
+
+#define _FixedShift 65536
+
+class fixed
+{
+	int value;	// True integer value
+
+	// Default constructor
+	fixed()
+	{
+		value = 0;	// Default in ACS is zero
+	}
+	// Specify an integer value
+	fixed(int v)
+	{
+		value = v;
+	}
+	// Manually specify integral and fractional halves
+	fixed(int i, int f)
+	{
+		value = i * 65536 + f;
+	}
+
+	int toInt()
+	{
+		return value / _FixedShift;
+	}
+	string toString()
+	{
+		return string(this);
+	}
+
+	fixed operator * (int multiplier)
+	{
+		return fixed(value * multiplier);
+	}
+	fixed operator * (fixed multiplier)
+	{
+		return FixedMul(value, multiplier.value);
+	}
+	fixed operator / (int divisor)
+	{
+		return fixed(value / divisor);
+	}
+	fixed operator / (fixed divisor)
+	{
+		return FixedDiv(value, divisor.value)
+	}
+
+	fixed inv()
+	{
+		return fixed(-value);
+	}
+	fixed abs()
+	{
+		if (value < 0)
+			return inv();
+		return fixed(value);
+	}
+};

@@ -1,0 +1,32 @@
+//**************************************************************************
+//**
+//** String.acs
+//**
+//** Defines the alias "string", and adds additional string usages
+//**
+//**************************************************************************
+
+class string
+{
+	str contents;
+
+	string operator + (string rparam)
+	{
+		return string(strparam(s : contents, s : rparam));
+	}
+	string operator += (string rparam)
+	{
+		contents = strparam(s : contents, s : rparam);
+		return string(contents);
+	}
+	string operator = (str rparam)
+	{
+		contents = rparam;
+		return string(contents);
+	}
+
+	int index()
+	{
+		return (int)contents;
+	}
+};

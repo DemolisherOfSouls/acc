@@ -1,0 +1,55 @@
+//**************************************************************************
+//**
+//** Actor.acs
+//**
+//** Class that can easily manipulate and manage an in game actor
+//**
+//**************************************************************************
+
+#include "zcommon.acs"
+#include <string>
+#include <fixed>
+#include <tid>
+
+class actor
+{
+	tid actorTID;	//This actor's TID
+
+	int health,
+		maxhealth;
+
+	int height,
+		radius;
+
+	fixed x, y, z;
+
+	fixed angle,
+		pitch,
+		speed;
+
+	// Constructors ------------------------------------------------------------|
+
+	actor(tid id)
+	{
+		actorTID = id;
+	}
+	actor(tid start, tid count)
+	{
+		//actorTID = NewUnusedTID();
+	}
+
+	// Methods -----------------------------------------------------------------|
+
+	int health()
+	{
+		return GetActorProperty(0, APROP_Health);
+	}
+	int damage()
+	{
+		return GetActorProperty(0, APROP_Damage);
+	}
+	fixed speed()
+	{
+		return GetActorProperty(0, APROP_Speed);
+	}
+};

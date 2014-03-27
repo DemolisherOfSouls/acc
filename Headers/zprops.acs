@@ -1,0 +1,36 @@
+//**************************************************************************
+//**
+//** zprops.acs
+//**
+//** Contains values that are set for use in all functions
+//**
+//**************************************************************************
+
+//Globally set hudsize with the #pragma hudsize x y sb
+//Once set, all calls to HudMessage are preceeded by SetHUDSize(x,y,sb);
+static bool	_HUDSIZE;
+static int	_HUDSIZE_X;			// Width				(0 if _HUDSIZE = false)
+static int	_HUDSIZE_Y;			// Height				(0 if _HUDSIZE = false)
+static bool	_HUDSIZE_SBAR;		// Include status bar?	(false if _HUDSIZE = false)
+
+//Map properties
+static int	_MAP;				// Map number
+static int	_CLUSTER;			// Cluster number
+static int	_SECRETS_TOTAL;		// Total secrets in level
+static int	_SECRETS_FOUND;		// Number of secrets found
+static int	_ITEMS_TOTAL;		// Total items in level
+static int	_ITEMS_FOUND;		// Number of items picked up
+static int	_ENEMIES_TOTAL;		// Total enemies in level
+static int	_ENEMIES_KILLED;	// Total enemies killed
+static int	_SKILL;				// Skill of current level
+static bool	_IS_SINGLEPLAYER;	// Single player game?
+static bool	_IS_COOPERTIVE;		// Multiplayer co-op?
+static bool	_IS_DEATHMATCH;		// Multiplayer deathmatch?
+static str	_MAPLUMP;			// Map file name
+static str	_MAPNAME;			// Map nice name
+
+// Hardcode this?
+script "_Init" ()
+{
+	//Set all values
+}
