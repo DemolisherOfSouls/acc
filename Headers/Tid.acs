@@ -1,0 +1,22 @@
+//**************************************************************************
+//**
+//** Tid.acs
+//**
+//** Defines the tid class, which supports counting and manipulating thing id's
+//**
+//**************************************************************************
+
+class tid
+{
+	int value;
+	
+	int count()
+	{
+		return ThingCount(T_NONE, value);
+	}
+	
+	int next()
+	{
+		return 0; // UnusedTID(value, 10000);
+	}
+};
