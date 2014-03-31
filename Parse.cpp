@@ -2107,6 +2107,10 @@ static void ProcessScriptFunc(ACS_Node *sym, bool discardReturn)
 	int argCount;
 
 	Message(MSG_DEBUG, "---- ProcessScriptFunc ----");
+	if(!sym->cmd->isUser && !discardReturn) // Not user defined and used to return a value
+	{
+		sym->cmd->type = VT_INT; //TODO: Set desired type
+	}
 	argCount = sym->cmd->scriptFunc.argCount;
 	TK_NextTokenMustBe(TK_LPAREN, ERR_MISSING_LPAREN);
 	i = 0;
@@ -2582,7 +2586,7 @@ static void LeadingIf()
 	jumpAddrPtr1 = pCode_Current;
 	PC_SkipInt();
 	TK_NextToken();
-	if(ProcessStatement(STMT_IF) == false)
+	if(!ProcessStatement(STMT_IF))
 	{
 		ERR_Error(ERR_INVALID_STATEMENT, true);
 	}
@@ -2593,7 +2597,7 @@ static void LeadingIf()
 		PC_SkipInt();
 		PC_WriteInt(pCode_Current, jumpAddrPtr1);
 		TK_NextToken();
-		if(ProcessStatement(STMT_ELSE) == false)
+		if(!ProcessStatement(STMT_ELSE))
 		{
 			ERR_Error(ERR_INVALID_STATEMENT, true);
 		}
@@ -2621,23 +2625,23 @@ static void LeadingFor()
 	Message(MSG_DEBUG, "---- LeadingFor ----");
 	TK_NextTokenMustBe(TK_LPAREN, ERR_MISSING_LPAREN);
 	TK_NextToken();
-	if(ProcessStatement(STMT_IF) == false)
+	if(!ProcessStatement(STMT_IF))
 	{
 		ERR_Error(ERR_INVALID_STATEMENT, true);
 	}
-	exprAddr = pCode_Current;
+	exprAddr = pCode_current;
 	EvalExpression();
 	TK_TokenMustBe(TK_SEMICOLON, ERR_MISSING_SEMICOLON);
 	TK_NextToken();
 	PC_AppendCmd(PCD_IFGOTO);
-	ifgotoAddr = pCode_Current;
+	ifgotoAddr = pCode_current;
 	PC_SkipInt();
 	PC_AppendCmd(PCD_GOTO);
-	gotoAddr = pCode_Current;
+	gotoAddr = pCode_current;
 	PC_SkipInt();
-	incAddr = pCode_Current;
+	incAddr = pCode_current;
 	forSemicolonHack = true;
-	if(ProcessStatement(STMT_IF) == false)
+	if(!ProcessStatement(STMT_IF))
 	{
 		ERR_Error(ERR_INVALID_STATEMENT, true);
 	}
@@ -2707,7 +2711,7 @@ static void LeadingDo()
 	Message(MSG_DEBUG, "---- LeadingDo ----");
 	topAddr = pCode_Current;
 	TK_NextToken();
-	if(ProcessStatement(STMT_DO) == false)
+	if(!ProcessStatement(STMT_DO))
 	{
 		ERR_Error(ERR_INVALID_STATEMENT, true, NULL);
 	}
@@ -2756,7 +2760,7 @@ static void LeadingSwitch()
 	PC_SkipInt();
 
 	TK_NextToken();
-	if(ProcessStatement(STMT_SWITCH) == false)
+	if(!ProcessStatement(STMT_SWITCH))
 	{
 		ERR_Error(ERR_INVALID_STATEMENT, true, NULL);
 	}
@@ -2772,7 +2776,7 @@ static void LeadingSwitch()
 	{
 		while((cInfo = GetCaseInfo()) != NULL)
 		{
-			if(cInfo->isDefault == true)
+			if(cInfo->isDefault)
 			{
 				defaultAddress = cInfo->address;
 				continue;
@@ -2794,7 +2798,7 @@ static void LeadingSwitch()
 			minCase = cInfo;
 		}
 		qsort(minCase, maxCase - minCase, sizeof(caseInfo_t), CaseInfoCmp);
-		if(minCase->isDefault == true)
+		if(minCase->isDefault)
 		{
 			defaultAddress = minCase->address;
 			minCase++;
@@ -2930,8 +2934,7 @@ static bool DefaultInCurrent()
 
 	for(i = 0; i < CaseIndex; i++)
 	{
-		if(CaseInfo[i].isDefault == true
-			&& CaseInfo[i].level == pa_CurrentDepth)
+		if(CaseInfo[i].isDefault && CaseInfo[i].level == pa_CurrentDepth)
 		{
 			return true;
 		}
@@ -2997,9 +3000,7 @@ static void WriteBreaks()
 
 static bool BreakAncestor()
 {
-	int i;
-
-	for(i = 0; i < StatementIndex; i++)
+	for(int i = 0; i < StatementIndex; i++)
 	{
 		if(IsBreakRoot[StatementHistory[i]])
 		{
@@ -3068,9 +3069,7 @@ static void WriteContinues(int address)
 
 static bool ContinueAncestor()
 {
-	int i;
-
-	for(i = 0; i < StatementIndex; i++)
+	for(int i = 0; i < StatementIndex; i++)
 	{
 		if(IsContinueRoot[StatementHistory[i]])
 		{
@@ -3428,7 +3427,7 @@ static void ExprLevX(int level)
 			// Completely ignore unary plus
 			TK_NextToken();
 		}
-		if(ConstantExpression == true)
+		if(ConstantExpression)
 		{
 			ConstExprFactor();
 		}
@@ -3436,7 +3435,7 @@ static void ExprLevX(int level)
 		{
 			ExprFactor();
 		}
-		if(unaryMinus == true)
+		if(unaryMinus)
 		{
 			SendExprCommand(PCD_UNARYMINUS);
 		}
@@ -3684,14 +3683,14 @@ static void ExprFactor()
 				}
 				break;
 			case SY_INTERNFUNC:
-				if(sym->cmd->internFunc.hasReturnValue == false)
+				if(sym->cmd->type == VT_VOID)
 				{
 					ERR_Error(ERR_EXPR_FUNC_NO_RET_VAL, true);
 				}
 				ProcessInternFunc(sym);
 				break;
 			case SY_SCRIPTFUNC:
-				if(sym->cmd->scriptFunc.hasReturnValue == false)
+				if(sym->cmd->isUser && sym->cmd->type == VT_VOID) // User defined, and void return
 				{
 					ERR_Error(ERR_EXPR_FUNC_NO_RET_VAL, true);
 				}
@@ -3924,12 +3923,11 @@ static int PopExStk()
 
 static pCode TokenToPCD(tokenType_t token)
 {
-	int i;
 	static struct
 	{
 		tokenType_t token;
 		pCode pcd;
-	}  operatorLookup[] =
+	}  operatorLookup[]
 	{
 		{ TK_ORLOGICAL,		PCD_ORLOGICAL },
 		{ TK_ANDLOGICAL,	PCD_ANDLOGICAL },
@@ -3952,7 +3950,7 @@ static pCode TokenToPCD(tokenType_t token)
 		{ TK_NONE,			PCD_NOP }
 	};
 
-	for(i = 0; operatorLookup[i].token != TK_NONE; i++)
+	for(int i = 0; operatorLookup[i].token != TK_NONE; i++)
 	{
 		if(operatorLookup[i].token == token)
 		{
@@ -4000,7 +3998,6 @@ static pCode GetPushVarPCD(int symType)
 
 static pCode GetIncDecPCD(tokenType_t token, int symbol)
 {
-	int i;
 	static struct
 	{
 		tokenType_t token;
@@ -4027,7 +4024,7 @@ static pCode GetIncDecPCD(tokenType_t token, int symbol)
 		{ TK_NONE, SY_DUMMY, PCD_NOP }
 	};
 
-	for(i = 0; incDecLookup[i].token != TK_NONE; i++)
+	for(int i = 0; incDecLookup[i].token != TK_NONE; i++)
 	{
 		if(incDecLookup[i].token == token
 			&& incDecLookup[i].symbol == symbol)
@@ -4237,9 +4234,9 @@ static void InitializeArray(ACS_Node *sym, int dims[MAX_ARRAY_DIMS], int size)
 
 static ACS_Node *DemandSymbol(string name)
 {
-	ACS_Node *sym;
+	ACS_Node *sym = SY_Find(name);
 
-	if((sym = SY_Find(name)) == NULL)
+	if(sym == NULL)
 	{
 		ERR_Exit(ERR_UNKNOWN_IDENTIFIER, true, name);
 	}
@@ -4254,9 +4251,8 @@ static ACS_Node *DemandSymbol(string name)
 
 static ACS_Node *SpeculateSymbol(string name, bool hasReturn)
 {
-	ACS_Node *sym;
+	ACS_Node *sym = SY_Find(name);
 
-	sym = SY_Find(name);
 	if(sym == NULL)
 	{
 		string name = tk_String;
