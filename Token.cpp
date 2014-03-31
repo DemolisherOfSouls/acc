@@ -1,7 +1,6 @@
-
 //**************************************************************************
 //**
-//** token.c
+//** token.cpp
 //**
 //**************************************************************************
 
@@ -20,7 +19,7 @@
 #endif
 #include <limits.h>
 #include <fcntl.h>
-#include <stdlib.h>
+#include <cstdlib>
 #endif
 #include <cstdio>
 #include <ctype.h>
@@ -39,7 +38,8 @@
 
 // TYPES -------------------------------------------------------------------
 
-enum chr_t : char {
+enum chr_t : char
+{
 	CHR_EOF,
 	CHR_LETTER,
 	CHR_NUMBER,
@@ -47,7 +47,8 @@ enum chr_t : char {
 	CHR_SPECIAL
 };
 
-struct nestInfo_t {
+struct nestInfo_t
+{
 	vector<char> data;
 	string name;
 	int size;
@@ -67,7 +68,7 @@ struct nestInfo_t {
 
 static int SortKeywords(const void *a, const void *b);
 static void SetLocalIncludePath(string sourceName);
-static int PopNestedSource(enum ImportModes *prevMode);
+static int PopNestedSource(ImportModes *prevMode);
 static void ProcessLetterToken();
 static void ProcessNumberToken();
 static void EvalFixedConstant(int whole);
@@ -331,7 +332,7 @@ void TK_AddIncludePath(string sourcePath) {
 //
 //==========================================================================
 
-void TK_AddProgramIncludePath(char* progname) {
+void TK_AddProgramIncludePath(string progname) {
 	if (IncludePaths.size() < MAX_INCLUDE_PATHS) {
 #ifdef _WIN32
 #ifdef _MSC_VER
@@ -468,7 +469,7 @@ void TK_Include(string fileName) {
 //
 //==========================================================================
 
-void TK_Import(char *fileName, enum ImportModes prevMode) {
+void TK_Import(string fileName, ImportModes prevMode) {
 	TK_Include(fileName);
 	OpenFiles[NestDepth - 1].imported = true;
 	OpenFiles[NestDepth - 1].prevMode = prevMode;
