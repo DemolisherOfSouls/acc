@@ -1,7 +1,6 @@
-
 //**************************************************************************
 //**
-//** symbol.c
+//** symbol.cpp
 //**
 //**************************************************************************
 
@@ -224,7 +223,7 @@ void sym_Init()
 	ACS_DepthRoot::Init(0);
 
 	//Add internal functions
-	for each (ACS_Function def in InternalFunctions)
+	for (ACS_Function def : InternalFunctions)
 		sym_Nodes.add(ACS_Node(NODE_FUNCTION, def.index));
 }
 
@@ -254,7 +253,7 @@ ACS_Node *sym_FindGlobal(string name)
 	ACS_Node *node = Find(name, pa_FileDepth);
 	if(node)
 	{
-		MS_Message(MSG_DEBUG, "Symbol " + name + " marked as used.\n");
+		Message(MSG_DEBUG, "Symbol " + name + " marked as used.");
 
 		if(node->type == NODE_FUNCTION)
 		{
@@ -313,7 +312,7 @@ ACS_Node *sym_FindLocal(string name)
 //==========================================================================
 static ACS_Node *Find(string name, int depth)
 {
-	for each(ACS_Node &node in acs_Nodes)
+	for (ACS_Node &node : acs_Nodes)
 	{
 		if(node.name().compare(name) == 0)
 			if(acs_Depths[node.depth].current == depth)
@@ -395,13 +394,13 @@ static ACS_Node *Insert(string name, int type)
 //==========================================================================
 void SY_FreeLocals()
 {
-	for each (ACS_Node &node in acs_Nodes)
+	for (ACS_Node &node : acs_Nodes)
 	{
 		if(node.depth == pa_CurrentDepth)
 			FreeNodes(&node);
 		//delete node? why? It's not like an acs script is going to eat a gig of memory
 	}
-	MS_Message(MSG_DEBUG, "Freeing local identifiers\n");
+	Message(MSG_DEBUG, "Freeing local identifiers");
 }
 
 //==========================================================================
@@ -411,8 +410,8 @@ void SY_FreeLocals()
 //==========================================================================
 void SY_FreeGlobals()
 {
-	MS_Message(MSG_DEBUG, "Freeing global identifiers\n");
-	for each (ACS_Node &node in acs_Nodes)
+	Message(MSG_DEBUG, "Freeing global identifiers");
+	for (ACS_Node &node : acs_Nodes)
 		FreeNodes(&node);
 }
 
@@ -501,7 +500,7 @@ static void DeleteNode(symbolNode_t *node, symbolNode_t **parent_p)
 
 void SY_ClearShared()
 {
-	MS_Message(MSG_DEBUG, "Marking library exports as unused\n");
+	Message(MSG_DEBUG, "Marking library exports as unused");
 	ClearShared(0);
 }
 
@@ -513,7 +512,7 @@ void SY_ClearShared()
 
 static void ClearShared(ACS_Node *node)
 {
-	for each (ACS_Node &iter in acs_Nodes)
+	for (ACS_Node &iter : acs_Nodes)
 	{
 		if (node->depth == iter.depth)
 			iter.clear();
