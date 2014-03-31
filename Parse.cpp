@@ -24,6 +24,7 @@
 #define MAX_CONTINUE 128
 #define MAX_CASE 128
 #define EXPR_STACK_DEPTH 64
+#define MAX_SCRIPT_NUMBER 32767
 
 // TYPES -------------------------------------------------------------------
 
@@ -370,8 +371,7 @@ static void CountScript(int type)
 		{
 			if (type != 0)
 			{
-				MS_Message(MSG_DEBUG, "Script type: %s\n",
-					ScriptCounts[i].TypeName);
+				Message(MSG_DEBUG, "Script type: " + ScriptCounts[i].TypeName);
 			}
 			ScriptCounts[i].TypeCount++;
 			return;
@@ -394,6 +394,9 @@ static void Outside()
 	{
 		switch (tk_Token)
 		{
+		case TK_EOF:
+			done = true;
+			break;
 		case TK_NUMBERSIGN:
 			TK_NextToken();
 			switch (tk_Token)
@@ -422,8 +425,8 @@ static void Outside()
 			case TK_WADAUTHOR:
 				if (ImportMode != IMPORT_Importing)
 				{
-					MS_Message(MSG_DEBUG, "Will write WadAuthor-compatible object\n");
-					MS_Message(MSG_NORMAL, "You don't need to use #wadauthor anymore.\n");
+					Message(MSG_DEBUG, "Will write WadAuthor-compatible object");
+					Message(MSG_NORMAL, "You don't need to use #wadauthor anymore.");
 					pCode_WadAuthor = true;
 				}
 				TK_SkipTo(TK_NUMBERSIGN);
@@ -439,7 +442,7 @@ static void Outside()
 			case TK_ENCRYPTSTRINGS:
 				if (ImportMode != IMPORT_Importing)
 				{
-					MS_Message(MSG_DEBUG, "Strings will be encrypted\n");
+					Message(MSG_DEBUG, "Strings will be encrypted");
 					pCode_EncryptStrings = true;
 					if (pCode_EnforceHexen)
 					{
@@ -455,7 +458,7 @@ static void Outside()
 				TK_NextTokenMustBe(TK_STRING, ERR_STRING_LIT_NOT_FOUND);
 				if (ImportMode == IMPORT_None)
 				{
-					MS_Message(MSG_DEBUG, "Allocations modified for exporting\n");
+					Message(MSG_DEBUG, "Allocations modified for exporting");
 					ImportMode = IMPORT_Exporting;
 				}
 				else if (ImportMode == IMPORT_Importing)
@@ -484,7 +487,6 @@ static void Outside()
 		switch(tk_Token)
 		{
 		case TK_EOF:
-
 			done = true;
 			break;
 		case TK_SCRIPT:
@@ -538,7 +540,7 @@ static void OuterScript()
 	symbolNode_t *sym;
 	int scriptType, scriptFlags;
 
-	MS_Message(MSG_DEBUG, "---- OuterScript ----\n");
+	Message(MSG_DEBUG, "---- OuterScript ----");
 	BreakIndex = 0;
 	CaseIndex = 0;
 	pa_CurrentDepth = 0;
@@ -583,7 +585,7 @@ static void OuterScript()
 	else
 	{
 		scriptNumber = EvalConstExpression();
-		if(scriptNumber < 1 || scriptNumber > 32767)
+		if(scriptNumber < 1 || scriptNumber > MAX_SCRIPT_NUMBER)
 		{
 			TK_Undo();
 			ERR_Error(ERR_SCRIPT_OUT_OF_RANGE, true, NULL);
@@ -594,7 +596,7 @@ static void OuterScript()
 	}
 	if (scriptNumber >= 0)
 	{
-		MS_Message(MSG_DEBUG, "Script number: %d\n", scriptNumber);
+		Message(MSG_DEBUG, "Script number: " + string(scriptNumber));
 	}
 	else
 	{
@@ -765,7 +767,7 @@ static void OuterFunction()
 	symbolNode_t *sym;
 	int defLine;
 
-	MS_Message(MSG_DEBUG, "---- OuterFunction ----\n");
+	Message(MSG_DEBUG, "---- OuterFunction ----");
 	importing = ImportMode;
 	BreakIndex = 0;
 	CaseIndex = 0;
@@ -1168,7 +1170,7 @@ static void OuterSpecialDef()
 	int special;
 	symbolNode_t *sym;
 
-	MS_Message(MSG_DEBUG, "---- OuterSpecialDef ----\n");
+	Message(MSG_DEBUG, "---- OuterSpecialDef ----");
 	if(ImportMode == IMPORT_Importing)
 	{
 		// No need to process special definitions when importing.
@@ -1228,7 +1230,7 @@ static void OuterDefine(bool libdef)
 
 	string libtext = libdef ? "(libdef) " : "";
 
-	MS_Message(MSG_DEBUG, "---- OuterDefine " + libtext + "----\n");
+	Message(MSG_DEBUG, "---- OuterDefine " + libtext + "----");
 
 	TK_NextTokenMustBe(TK_IDENTIFIER, ERR_INVALID_IDENTIFIER);
 	node = SY_InsertGlobalUnique(tk_String, SY_CONSTANT);
@@ -1258,7 +1260,7 @@ static void OuterInclude()
 	// Don't include inside an import
 	if(ImportMode != IMPORT_Importing)
 	{
-		MS_Message(MSG_DEBUG, "---- OuterInclude ----\n");
+		Message(MSG_DEBUG, "---- OuterInclude ----");
 		TK_NextTokenMustBe(TK_STRING, ERR_STRING_LIT_NOT_FOUND);
 		TK_Include(tk_String);
 	}
@@ -1278,7 +1280,7 @@ static void OuterInclude()
 static void OuterImport()
 {
 
-	MS_Message(MSG_DEBUG, "---- OuterImport ----\n");
+	Message(MSG_DEBUG, "---- OuterImport ----");
 	if(ImportMode == IMPORT_Importing)
 	{
 		// Don't import inside an import
@@ -1286,7 +1288,7 @@ static void OuterImport()
 	}
 	else
 	{
-		MS_Message(MSG_DEBUG, "Importing a file\n");
+		Message(MSG_DEBUG, "Importing a file");
 		TK_NextTokenMustBe(TK_STRING, ERR_STRING_LIT_NOT_FOUND);
 		TK_Import(tk_String, ImportMode);
 	}
@@ -1503,7 +1505,7 @@ static void LeadingVarDeclare()
 		return;
 	}
 
-	MS_Message(MSG_DEBUG, "---- LeadingVarDeclare ----\n");
+	Message(MSG_DEBUG, "---- LeadingVarDeclare ----");
 	do
 	{
 		TK_NextTokenMustBe(TK_IDENTIFIER, ERR_INVALID_IDENTIFIER);
@@ -1565,7 +1567,7 @@ static void LeadingLineSpecial(bool executewait)
 	int specialValue;
 	bool direct;
 
-	MS_Message(MSG_DEBUG, "---- LeadingLineSpecial ----\n");
+	Message(MSG_DEBUG, "---- LeadingLineSpecial ----");
 	argCountMin = tk_SpecialArgCount & 0xffff;
 	argCountMax = tk_SpecialArgCount >> 16;
 	specialValue = tk_SpecialValue;
@@ -1709,7 +1711,7 @@ static void LeadingFunction(bool executewait)
 	int argCountMax;
 	int specialValue;
 
-	MS_Message(MSG_DEBUG, "---- LeadingFunction ----\n");
+	Message(MSG_DEBUG, "---- LeadingFunction ----");
 	argCountMin = tk_SpecialArgCount & 0xffff;
 	argCountMax = tk_SpecialArgCount >> 16;
 	specialValue = -tk_SpecialValue;
@@ -1848,7 +1850,7 @@ static void ProcessInternFunc(ACS_Node *node)
 	bool specialDirect;
 	int argSave[8];
 
-	MS_Message(MSG_DEBUG, "---- ProcessInternFunc ----\n");
+	Message(MSG_DEBUG, "---- ProcessInternFunc ----");
 	argCount = node->cmd->argTypes.size();
 	optMask = node->cmd->optMask;
 	outMask = node->cmd->outMask;
@@ -2104,7 +2106,7 @@ static void ProcessScriptFunc(ACS_Node *sym, bool discardReturn)
 	int i;
 	int argCount;
 
-	MS_Message(MSG_DEBUG, "---- ProcessScriptFunc ----\n");
+	Message(MSG_DEBUG, "---- ProcessScriptFunc ----");
 	argCount = sym->cmd->scriptFunc.argCount;
 	TK_NextTokenMustBe(TK_LPAREN, ERR_MISSING_LPAREN);
 	i = 0;
@@ -2369,7 +2371,7 @@ static void ActionOnCharRange(bool write)
 
 static void LeadingStrcpy()
 {
-	MS_Message(MSG_DEBUG, "---- LeadingStrcpy ----\n");
+	Message(MSG_DEBUG, "---- LeadingStrcpy ----");
 	TK_NextTokenMustBe(TK_LPAREN, ERR_MISSING_LPAREN);
 	
 	switch(TK_NextCharacter()) // structure borrowed from printbuilder
@@ -2396,7 +2398,7 @@ static void LeadingPrint()
 {
 	tokenType_t stmtToken;
 
-	MS_Message(MSG_DEBUG, "---- LeadingPrint ----\n");
+	Message(MSG_DEBUG, "---- LeadingPrint ----");
 	stmtToken = tk_Token; // Will be TK_PRINT or TK_PRINTBOLD, TK_LOG or TK_STRPARAM_EVAL [FDARI]
 	PC_AppendCmd(PCD_BEGINPRINT);
 	TK_NextTokenMustBe(TK_LPAREN, ERR_MISSING_LPAREN);
@@ -2440,7 +2442,7 @@ static void LeadingHudMessage()
 	tokenType_t stmtToken;
 	int i;
 
-	MS_Message(MSG_DEBUG, "---- LeadingHudMessage ----\n");
+	Message(MSG_DEBUG, "---- LeadingHudMessage ----");
 	stmtToken = tk_Token; // Will be TK_HUDMESSAGE or TK_HUDMESSAGEBOLD
 	PC_AppendCmd(PCD_BEGINPRINT);
 	TK_NextTokenMustBe(TK_LPAREN, ERR_MISSING_LPAREN);
@@ -2489,7 +2491,7 @@ static void LeadingHudMessage()
 
 static void LeadingCreateTranslation()
 {
-	MS_Message(MSG_DEBUG, "---- LeadingCreateTranslation ----\n");
+	Message(MSG_DEBUG, "---- LeadingCreateTranslation ----");
 	TK_NextTokenMustBe(TK_LPAREN, ERR_MISSING_LPAREN);
 	TK_NextToken();
 	EvalExpression();
@@ -2571,7 +2573,7 @@ static void LeadingIf()
 	int jumpAddrPtr1;
 	int jumpAddrPtr2;
 
-	MS_Message(MSG_DEBUG, "---- LeadingIf ----\n");
+	Message(MSG_DEBUG, "---- LeadingIf ----");
 	TK_NextTokenMustBe(TK_LPAREN, ERR_MISSING_LPAREN);
 	TK_NextToken();
 	EvalExpression();
@@ -2616,7 +2618,7 @@ static void LeadingFor()
 	int ifgotoAddr;
 	int	gotoAddr;
 
-	MS_Message(MSG_DEBUG, "---- LeadingFor ----\n");
+	Message(MSG_DEBUG, "---- LeadingFor ----");
 	TK_NextTokenMustBe(TK_LPAREN, ERR_MISSING_LPAREN);
 	TK_NextToken();
 	if(ProcessStatement(STMT_IF) == false)
@@ -2666,7 +2668,7 @@ static void LeadingWhileUntil()
 	int topAddr;
 	int outAddrPtr;
 
-	MS_Message(MSG_DEBUG, "---- LeadingWhileUntil ----\n");
+	Message(MSG_DEBUG, "---- LeadingWhileUntil ----");
 	stmtToken = tk_Token;
 	topAddr = pCode_Current;
 	TK_NextTokenMustBe(TK_LPAREN, ERR_MISSING_LPAREN);
@@ -2702,7 +2704,7 @@ static void LeadingDo()
 	int exprAddr;
 	tokenType_t stmtToken;
 
-	MS_Message(MSG_DEBUG, "---- LeadingDo ----\n");
+	Message(MSG_DEBUG, "---- LeadingDo ----");
 	topAddr = pCode_Current;
 	TK_NextToken();
 	if(ProcessStatement(STMT_DO) == false)
@@ -2742,7 +2744,7 @@ static void LeadingSwitch()
 	caseInfo_t *cInfo;
 	int defaultAddress;
 
-	MS_Message(MSG_DEBUG, "---- LeadingSwitch ----\n");
+	Message(MSG_DEBUG, "---- LeadingSwitch ----");
 
 	TK_NextTokenMustBe(TK_LPAREN, ERR_MISSING_LPAREN);
 	TK_NextToken();
@@ -2834,7 +2836,7 @@ static void LeadingSwitch()
 
 static void LeadingCase()
 {
-	MS_Message(MSG_DEBUG, "---- LeadingCase ----\n");
+	Message(MSG_DEBUG, "---- LeadingCase ----");
 	TK_NextToken();
 	PushCase(EvalConstExpression(), false);
 	TK_TokenMustBe(TK_COLON, ERR_MISSING_COLON);
@@ -2849,7 +2851,7 @@ static void LeadingCase()
 
 static void LeadingDefault()
 {
-	MS_Message(MSG_DEBUG, "---- LeadingDefault ----\n");
+	Message(MSG_DEBUG, "---- LeadingDefault ----");
 	TK_NextTokenMustBe(TK_COLON, ERR_MISSING_COLON);
 	PushCase(0, true);
 	TK_NextToken();
@@ -2945,7 +2947,7 @@ static bool DefaultInCurrent()
 
 static void LeadingBreak()
 {
-	MS_Message(MSG_DEBUG, "---- LeadingBreak ----\n");
+	Message(MSG_DEBUG, "---- LeadingBreak ----");
 	TK_NextTokenMustBe(TK_SEMICOLON, ERR_MISSING_SEMICOLON);
 	PC_AppendCmd(PCD_GOTO);
 	PushBreak();
@@ -3015,7 +3017,7 @@ static bool BreakAncestor()
 
 static void LeadingContinue()
 {
-	MS_Message(MSG_DEBUG, "---- LeadingContinue ----\n");
+	Message(MSG_DEBUG, "---- LeadingContinue ----");
 	TK_NextTokenMustBe(TK_SEMICOLON, ERR_MISSING_SEMICOLON);
 	PC_AppendCmd(PCD_GOTO);
 	PushContinue();
@@ -3088,7 +3090,7 @@ static void LeadingIncDec(tokenType_t token)
 {
 	ACS_Node *sym;
 
-	MS_Message(MSG_DEBUG, "---- LeadingIncDec ----\n");
+	Message(MSG_DEBUG, "---- LeadingIncDec ----");
 	TK_NextTokenMustBe(TK_IDENTIFIER, ERR_INCDEC_OP_ON_NON_VAR);
 	sym = DemandSymbol(tk_String);
 	if(sym->type != SY_SCRIPTVAR && sym->type != SY_MAPVAR
@@ -3138,7 +3140,7 @@ static void LeadingVarAssign(ACS_Node *sym)
 	bool done;
 	tokenType_t assignToken;
 
-	MS_Message(MSG_DEBUG, "---- LeadingVarAssign ----\n");
+	Message(MSG_DEBUG, "---- LeadingVarAssign ----");
 	done = false;
 	do
 	{
@@ -3267,7 +3269,7 @@ static pCode GetAssignPCD(tokenType_t token, int symbol)
 
 static void LeadingSuspend()
 {
-	MS_Message(MSG_DEBUG, "---- LeadingSuspend ----\n");
+	Message(MSG_DEBUG, "---- LeadingSuspend ----");
 	if(InsideFunction)
 	{
 		ERR_Error(ERR_SUSPEND_IN_FUNCTION, true);
@@ -3285,7 +3287,7 @@ static void LeadingSuspend()
 
 static void LeadingTerminate()
 {
-	MS_Message(MSG_DEBUG, "---- LeadingTerminate ----\n");
+	Message(MSG_DEBUG, "---- LeadingTerminate ----");
 	if(InsideFunction)
 	{
 		ERR_Error(ERR_TERMINATE_IN_FUNCTION, true);
@@ -3303,7 +3305,7 @@ static void LeadingTerminate()
 
 static void LeadingRestart()
 {
-	MS_Message(MSG_DEBUG, "---- LeadingRestart ----\n");
+	Message(MSG_DEBUG, "---- LeadingRestart ----");
 	if(InsideFunction)
 	{
 		ERR_Error(ERR_RESTART_IN_FUNCTION, true);
@@ -3321,7 +3323,7 @@ static void LeadingRestart()
 
 static void LeadingReturn()
 {
-	MS_Message(MSG_DEBUG, "---- LeadingReturn ----\n");
+	Message(MSG_DEBUG, "---- LeadingReturn ----");
 	if(!InsideFunction)
 	{
 		ERR_Error(ERR_RETURN_OUTSIDE_FUNCTION, true);
@@ -4285,7 +4287,7 @@ static ACS_Node *SpeculateFunction(const string name, bool hasReturn)
 {
 	ACS_Node *sym;
 	
-	MS_Message(MSG_DEBUG, "---- SpeculateFunction %s ----\n", name);
+	Message(MSG_DEBUG, "---- SpeculateFunction " + name + " ----");
 	sym = sym_InsertGlobal(tk_String, SY_SCRIPTFUNC);
 	sym->cmd->scriptFunc.predefined = true;
 	sym->cmd->scriptFunc.hasReturnValue = hasReturn;
