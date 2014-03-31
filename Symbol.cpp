@@ -432,7 +432,7 @@ static void FreeNodes(ACS_Node *root)
 //==========================================================================
 void SY_FreeConstants(int depth)
 {
-	MS_Message(MSG_DEBUG, "Freeing constants for depth %d\n", depth);
+	Message(MSG_DEBUG, "Freeing constants for depth " + string(depth));
 	FreeNodesAtDepth(depth);
 }
 
