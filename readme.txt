@@ -16,6 +16,7 @@ Ben Gokey - Creator of the original ACC Version 1.10.
 Randy Heit - Maintainer of ACC, ZDoom.
 Christopher "Graf Zahl" Oelckers - Maintainer of ACC, ZDoom, GZDoom.
 Blzut3 - Code additions
+RhinoDuck - Fix for function return value speculation
 
 ==================================================================
 Copyright (c) 1995 Raven Software, Corp.
