@@ -1,7 +1,6 @@
-
 //**************************************************************************
 //**
-//** strlist.c
+//** strlist.cpp
 //**
 //**************************************************************************
 
@@ -88,8 +87,8 @@ static void Encrypt(void *data, int key, int len);
 
 // PRIVATE DATA DEFINITIONS ------------------------------------------------
 
-static languageInfo *LanguageInfo[MAX_LANGUAGES];
-static StringList *StringLists[NUM_STRLISTS];
+static auto languageInfo = vector<LanguageInfo>(MAX_LANGUAGES);
+static auto StringLists = StringList(NUM_STRLISTS);
 
 // CODE --------------------------------------------------------------------
 
@@ -240,7 +239,7 @@ static int STR_FindInSomeListInsensitive(StringList &list, string name)
 //
 //==========================================================================
 
-const char *STR_GetString(int list, int index)
+const string STR_GetString(int list, int index)
 {
 	if (StringLists[list] == NULL)
 	{
@@ -326,18 +325,15 @@ int STR_ListSize(int list)
 
 void STR_WriteStrings()
 {
-	int i;
-	int pad;
-
-	MS_Message(MSG_DEBUG, "---- STR_WriteStrings ----\n");
-	for(i = 0; i < LanguageInfo[0]->list.stringCount; i++)
+	Message(MSG_DEBUG, "---- STR_WriteStrings ----");
+	for(int i = 0; i < LanguageInfo[0]->list.stringCount; i++)
 	{
 		LanguageInfo[0]->list.strings[i].address = pc_Address;
 		PC_AppendString(LanguageInfo[0]->list.strings[i].name);
 	}
 	if(pc_Address%4 != 0)
 	{ // Need to align
-		pad = 0;
+		int pad = 0;
 		PC_Append((void *)&pad, 4-(pc_Address%4));
 	}
 }
@@ -350,11 +346,9 @@ void STR_WriteStrings()
 
 void STR_WriteList()
 {
-	int i;
-
-	MS_Message(MSG_DEBUG, "---- STR_WriteList ----\n");
+	Message(MSG_DEBUG, "---- STR_WriteList ----");
 	PC_AppendInt(LanguageInfo[0]->list.stringCount);
-	for(i = 0; i < LanguageInfo[0]->list.stringCount; i++)
+	for(int i = 0; i < LanguageInfo[0]->list.stringCount; i++)
 	{
 		PC_AppendInt(LanguageInfo[0]->list.strings[i].address);
 	}
@@ -371,7 +365,7 @@ void STR_WriteChunk(int language, bool encrypt)
 	languageInfo_t *lang = LanguageInfo[language];
 	int lenadr;
 
-	MS_Message(MSG_DEBUG, "---- STR_WriteChunk %d ----\n", language);
+	Message(MSG_DEBUG, "---- STR_WriteChunk " + string(language) + " ----");
 	PC_Append(encrypt ? "STRE" : "STRL", 4);
 	lenadr = pc_Address;
 	PC_SkipInt();
