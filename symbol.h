@@ -17,30 +17,22 @@
 #define MAX_ARRAY_DIMS 8		// Seems reasonable
 #define MAX_DEFINED_TYPES 256	// Will increase if necessary
 
-#define VAR_VOID		0
-#define VAR_INT			1
-#define VAR_BOOL		2
-#define VAR_STR			3
-
-#define VAR_INTERNAL	4
-
-#define DEPTH_MAP_LEVEL	0
-#define DEPTH_NONE		-1
-
 // TYPES -------------------------------------------------------------------
 
+template <class type> struct ACS_IndexedObject;
+struct ACS_VarRef;
+struct ACS_TypeDef;
 struct ACS_Object;
+struct ACS_VarData;
 struct ACS_Var;
 struct ACS_Const;
 struct ACS_Function;
-struct ACS_Struct;
-struct ACS_StructArray;
-struct ACS_Array;
-struct ACS_TypeDef;
-struct ACS_VarRef;
 struct ACS_FuncCall;
+struct ACS_Array;
 struct ACS_Node;
 struct ACS_DepthRoot;
+struct ACS_Script;
+struct ACS_File;
 
 using ConstList = vector<ACS_Const>;
 using VarList = vector<ACS_Var>;
@@ -51,6 +43,52 @@ using ArrayList = vector<ACS_Array>;
 using FunCallList = vector<ACS_FuncCall>;
 using DepthList = vector<ACS_DepthRoot>;
 using NodeList = vector<ACS_Node>;
+using ScriptList = vector<ACS_Script>;
+using FileList = vector<ACS_File>;
+
+enum DataType : int
+{
+	VAR_VOID,
+	VAR_INT,
+	VAR_BOOL,
+	VAR_STR,
+
+	VAR_COUNT
+};
+enum NodeType : int
+{
+	NODE_UNKNOWN = -1,
+	NODE_FUNCTION,
+	NODE_VARIABLE,
+	NODE_ARRAY
+};
+enum DepthVal : int
+{
+	DEPTH_NONE = -1,	// Undefined
+	DEPTH_GLOBAL,		// Map level, initial file
+};
+
+template <class type>
+class ACS_DeletableObject
+{
+private:
+
+	using LTRef = vector<type>&;
+
+	LTRef list;
+
+public:
+
+	bool isDeleted;
+
+	void Delete()
+	{
+		if (isDeleted)
+			ERR_Error(ERR_ALREADY_DELETED, false, name, tk_Line);
+		else
+			lib(isDeleted) = true;
+	}
+};
 
 template <class type>
 class ACS_IndexedObject
@@ -61,9 +99,11 @@ public:
 
 protected:
 
-	vector<type> &list;
+	using LTRef = vector<type>&;
 
-	void initList(vector<type> &list)
+	LTRef list;
+
+	void initList(LTRef list)
 	{
 		set(list);
 		index = -1;
@@ -89,14 +129,6 @@ protected:
 	}
 };
 
-enum NodeTypes : int
-{
-	NODE_UNKNOWN = -1,
-	NODE_FUNCTION,
-	NODE_VARIABLE,
-	NODE_ARRAY
-};
-
 struct ACS_VarRef
 {
 	string name;			// Name of member
@@ -112,7 +144,20 @@ protected:
 		size = 1;
 		hasMembers = false;
 		hasParent = false;
-		initList(acs_Types);
+		initList(sym_Types);
+	}
+
+	int calcSSize()
+	{
+		if (!hasMembers)
+			return 1;
+
+		int ret = 0;
+		for (int i = 0; i < members.size; i++)
+		{
+			ret += sym_Types[members[i].type].size;
+		}
+		return ret;
 	}
 
 public:
@@ -147,12 +192,12 @@ public:
 	{
 		init();
 		set(type);
-		members = acs_Types[parent].members;
-		methods = acs_Types[parent].methods;
-		operators = acs_Types[parent].operators;
-		constructors = acs_Types[parent].constructors;
+		members = list[parent].members;
+		methods = list[parent].methods;
+		operators = list[parent].operators;
+		constructors = list[parent].constructors;
 		size = calcSSize();
-		hasMembers = acs_Types[parent].hasMembers;
+		hasMembers = list[parent].hasMembers;
 		set(parent);
 		addListItem();
 	}
@@ -163,27 +208,12 @@ public:
 		set(type);
 	}
 
-	static void Init(string type)
+	static void Init(string&& type)
 	{
-		setListItem(type);
+		setListItem(move(type));
 	}
 
 	//TODO: Add method of adding objects when inheriting
-
-protected:
-
-	int calcSSize()
-	{
-		if (!hasMembers)
-			return 1;
-
-		int ret = 0;
-		for (int i = 0; i < members.size; i++)
-		{
-			ret += acs_Types[members[i].type].size;
-		}
-		return ret;
-	}
 };
 
 // Base class for acs objects
@@ -216,7 +246,8 @@ protected:
 	{
 		ACS_Object::init();
 		type = VAR_VOID;
-		isDeleted = isAssigned = false;
+		initializer = 0;
+		isAssigned = false;
 		isStatic = isConst = false;
 		isWorld = isGlobal = false;
 	}
@@ -224,8 +255,8 @@ protected:
 public:
 
 	int type;			// Type of variable / Return type
+	int initializer;	// Initial value of variable
 
-	bool isDeleted;		// Has 'delete' been called on it?
 	bool isAssigned;	// Has a value been assigned to it?
 	bool isStatic;		// Was this declared as static?
 	bool isConst;		// Was this declared as const?
@@ -234,19 +265,19 @@ public:
 
 	int size()
 	{
-		return acs_Types[type].size;
+		return sym_Types[type].size;
 	}
 };
 
 // Class for all defined variables
-class ACS_Var : public ACS_VarData, public ACS_IndexedObject<ACS_Var>
+class ACS_Var : public ACS_VarData, public ACS_IndexedObject<ACS_Var>, public ACS_DeletableObject<ACS_Var>
 {
 protected:
 
 	void init()
 	{
 		ACS_VarData::init();
-		initList(acs_Variables);
+		initList(sym_Variables);
 	}
 
 public:
@@ -276,29 +307,19 @@ public:
 			addListItem();
 	}
 	//TODO: Add Global and World Declarations
-
-	// Returns true if the item was marked as deleted,
-	// false if it was already deleted
-	bool Delete()
-	{
-		if (isDeleted)
-		{
-			ERR_Error(ERR_ALREADY_DELETED, false, name, tk_Line);
-			return false;
-		}
-		return lib(isDeleted) = true;
-	}
 };
 
 // Class for preprocessor defines
-class ACS_Const : public ACS_Object, public ACS_IndexedObject<ACS_Const>
+class ACS_Const : public ACS_Object, public ACS_IndexedObject<ACS_Const>, public ACS_DeletableObject<ACS_Const>
 {
 protected:
 
 	void init()
 	{
 		ACS_Object::init();
-		initList(acs_Constants);
+		content = "";
+		isLibDefine = false;
+		initList(sym_Constants);
 	}
 
 public:
@@ -311,8 +332,15 @@ public:
 	{
 		init();
 	}
+	//Undeclared Constant
+	ACS_Const(string name, bool isImported = false)
+	{
+		init();
+		set(name);
+		set(isImported);
+	}
 	//Standard Declaration
-	ACS_Const(string name, string content, bool isLibDefine = false, bool isImported = false)
+	ACS_Const(string name, string content, int depth, bool isLibDefine = false, bool isImported = false)
 	{
 		init();
 		set(name);
@@ -329,15 +357,15 @@ class ACS_Function : public ACS_VarData, public ACS_IndexedObject<ACS_Function>
 {
 protected:
 
-	void init()
+	void init(LTRef fl = sym_Functions)
 	{
 		ACS_VarData::init();
 		isOperator = isSpecial = isMember = isInline = isLatent = false;
 		isUserDefined = false;
-		optMask = outMask = 0;
+		optMask = outMask = varCount = 0;
 		DirectCMD = StackCMD = PCD_NOP;
 		OperatorType = TypeAssigned = NULL;
-		initList(acs_Functions);
+		initList(fl);
 	}
 
 public:
@@ -345,9 +373,11 @@ public:
 	vector<int> argTypes;		// List of argument types passed to the function
 	int OperatorType;			// Type of operator, if isOperator is true
 	int TypeAssigned;			// Type of typedef / struct that this is attached to
+	int varCount;				// The number of variables and arguments used by this function
+	int address;				// ?
 
-	pcd_t DirectCMD;			// Direct pCode to add
-	pcd_t StackCMD;				// Stack pCode to add
+	pCode DirectCMD;			// Direct pCode to add
+	pCode StackCMD;				// Stack pCode to add
 
 	int optMask;				// ?
 	int outMask;				// ?
@@ -368,7 +398,7 @@ public:
 	}
 	// Use for defining old style internal functions
 	// Warning: Using this constructor will add an additional function
-	ACS_Function(string name, pcd_t DirectCMD, pcd_t StackCMD, int argCount, int optMask, int outMask, bool returns, bool isLatent)
+	ACS_Function(string name, pCode DirectCMD, pCode StackCMD, int argCount, int optMask, int outMask, bool returns, bool isLatent)
 	{
 		init();
 		set(name);
@@ -380,14 +410,16 @@ public:
 		//TODO: Figure out 'outmask' / 'optmask'
 		set(optMask);
 		set(outMask);
-		depth = DEPTH_MAP_LEVEL;
+		depth = DEPTH_GLOBAL;
 		addListItem();
 		setOperator(0, 0, false);
 	}
 	// Use for defining new style internal functions
 	// Warning: Using this constructor will add an additional function
-	ACS_Function(string name, pcd_t DirectCMD, pcd_t StackCMD, int type, vector<int> argTypes, int depth = 0)
+	// You may specify the list that the function will be stored in
+	ACS_Function(string name, pCode DirectCMD, pCode StackCMD, int type, vector<int> argTypes, DepthVal depth = DEPTH_GLOBAL, LTRef vec = sym_Functions)
 	{
+		init(vec);
 		set(name);
 		set(depth);
 		set(DirectCMD);
@@ -426,7 +458,7 @@ struct ACS_FuncCall
 	VarRefList args;			// Arguments
 };
 
-class ACS_Array : public ACS_VarData, public ACS_IndexedObject<ACS_Array>
+class ACS_Array : public ACS_VarData, public ACS_IndexedObject<ACS_Array>, public ACS_DeletableObject<ACS_Var>
 {
 protected:
 
@@ -435,7 +467,18 @@ protected:
 		ACS_VarData::init();
 		dimAmt = 0;
 		size = calcASize();
-		initList(acs_Arrays);
+		initList(sym_Arrays);
+	}
+
+	int calcASize()
+	{
+		int ret = 1;
+		for (int i = 0; i < dimAmt; i++)
+		{
+			ret *= dimensions[i];
+		}
+
+		return ret;
 	}
 
 public:
@@ -457,6 +500,10 @@ public:
 	ACS_Array(string name, int type, int depth, bool isAssigned = false)
 	{
 		init();
+		set(name);
+		set(type);
+		set(depth);
+		set(isAssigned);
 	}
 
 	void setDimension(int value)
@@ -475,30 +522,6 @@ public:
 		dimAmt++;
 		lib(size) = calcASize();
 	}
-
-	bool Delete()
-	{
-		if (isDeleted)
-		{
-			ERR_Error(ERR_ALREADY_DELETED, false, name, tk_Line);
-			return false;
-		}
-		return lib(isDeleted) = true;
-	}
-
-protected:
-
-	int calcASize()
-	{
-		int ret = 1;
-		for (int i = 0; i < dimAmt; i++)
-		{
-			ret *= dimensions[i];
-		}
-
-		return ret;
-	}
-
 };
 
 class ACS_Node
@@ -508,36 +531,43 @@ protected:
 	void init()
 	{
 		type = NODE_UNKNOWN;
-		cmd = NULL; var = NULL;
-		arr = NULL;
+		cmd = NULL;
 	}
 
 public:
 
-	int type;			// What this node contains
-	ACS_Function * cmd;	// Pointer to the function
-	ACS_Var * var;		// Pointer to the variable
-	ACS_Array * arr;	// Pointer to the array
+	int type;				// What this node contains
 
-	ACS_Node(NodeTypes type, int index)
+	union					// Stores the pointer
 	{
+		ACS_Function * cmd;	// Pointer to the function
+		ACS_Var * var;		// Pointer to the variable
+		ACS_Array * arr;	// Pointer to the array
+	};
+
+	ACS_Node(NodeType type, int index)
+	{
+		init();
 		set(type);
 
 		switch (type)
 		{
 		case NODE_FUNCTION:
-			cmd = &acs_Functions[index];
+			cmd = &sym_Functions[index];
 			break;
 		case NODE_ARRAY:
-			arr = &acs_Arrays[index];
+			arr = &sym_Arrays[index];
 			break;
 		case NODE_VARIABLE:
-			var = &acs_Variables[index];
+		default:
+			this->type = NODE_VARIABLE;
+			var = &sym_Variables[index];
 			break;
 		}
 	}
-	ACS_Node(int type, string name)
+	ACS_Node(NodeType type, string name)
 	{
+		init();
 		set(type);
 
 		switch (type)
@@ -549,12 +579,16 @@ public:
 			arr = new ACS_Array(name);
 			break;
 		case NODE_VARIABLE:
+		default:
+			this->type = NODE_VARIABLE;
 			var = new ACS_Var(name);
 			break;
 		}
 	}
 
-#define PUBLIC_GET_SET(type, member) type member() { return obj->member; } void member(type value) { obj->member = value; }
+#define PUBLIC_GET_SET(type, member) \
+	type member() { return cmd->member; } \
+	void member(type value) { cmd->member = value; }
 
 	PUBLIC_GET_SET(string, name);
 	PUBLIC_GET_SET(bool, isDeclared);
@@ -578,7 +612,7 @@ protected:
 
 	void init()
 	{
-		initList(acs_Depths);
+		initList(sym_Depths);
 		parent = DEPTH_NONE;
 		index = DEPTH_NONE;
 	}
@@ -588,7 +622,7 @@ public:
 	{
 		init();
 	}
-	// Warning: Using this constructor will add an additional depth index
+	// Warning: Using this constructor can add an additional depth index
 	ACS_DepthRoot(int parent, bool add = true)
 	{
 		init();
@@ -596,58 +630,167 @@ public:
 		if(add) addListItem();
 	}
 
-	static void Init(int parent)
+	static void Init(int && parent)
 	{
-		setListItem(parent);
+		setListItem(move(parent));
 	}
 
-	int Parent()
+	const ACS_DepthRoot& WidenScope()
 	{
-		return parent;
+		if (!isParentValid())
+			return NULL;
+
+		return list[parent];
 	}
 
-	int Current()
+	static const ACS_DepthRoot& WidenScope(const ACS_DepthRoot& depth)
 	{
-		return index;
+		if (depth.parent == DEPTH_NONE)
+			return NULL;
+
+		return depth.list[depth.parent];
+	}
+
+	bool isParentValid() { return (this->parent != DEPTH_NONE); }
+	bool isParentOuter() { return (this->parent == pa_FileDepth); }
+	bool isValid() { return (this->index != DEPTH_NONE); }
+	bool isOuter() { return (this->index == pa_FileDepth); }
+	int Parent() { return this->parent; }
+	int Current() { return this->index; }
+};
+
+class ACS_Script : public ACS_IndexedObject<ACS_Script>
+{
+protected:
+
+	void init()
+	{
+		initList(sym_Scripts);
+		number = address = argCount = varCount = flags = srcLine = NULL;
+		name = "";
+		hasName = false;
+		isImported = false;
+		type = ST_CLOSED;
+	}
+
+public:
+
+	int number;
+	string name;
+	bool hasName;
+
+	int address;
+	int argCount, varCount;
+	int flags;
+	int srcLine;
+
+	bool isImported;
+
+	ScriptType type;
+
+	// Empty Constructor
+	ACS_Script()
+	{
+		init();
+	}
+	// Numbered script
+	ACS_Script(int number, int argCount, int flags, ScriptType type)
+	{
+		set(number);
+		set(argCount);
+		set(flags);
+		set(type);
+		srcLine = tk_Line;
+		isImported = (ImportMode == IMPORT_Importing);
+	}
+	// String literal \ Identifier script
+	ACS_Script(string name, int argCount, int flags, ScriptType type)
+	{
+		set(name);
+		hasName = true;
+		set(argCount);
+		set(flags);
+		set(type);
+		srcLine = tk_Line;
+		isImported = (ImportMode == IMPORT_Importing);
+	}
+
+	void Archive()
+	{
+		addListItem();
 	}
 };
 
-struct symScriptFunc_t
+class ACS_File : public ACS_IndexedObject<ACS_File>
 {
-	int address;
-	int argCount;
-	int varCount;
-	int funcNumber;
-	bool hasReturnValue;
-	int sourceLine;
-	char *sourceName;
-	bool predefined;
+protected:
+
+	void init()
+	{
+		initList(sym_Files);
+		outerDepth = DEPTH_NONE;
+		isImporting = isLoaded = isProcessed = false;
+	}
+
+public:
+
+	int outerDepth;		// Lowest Depth index, and most global in this file
+	string name;		// Name of library / ACS script
+
+	bool isImporting;	// This file was imported by another
+	bool isLoaded;		// This file was loaded
+	bool isProcessed;	// This file was parsed
+
+	// Basic Constructor
+	ACS_File()
+	{
+		init();
+	}
+	// Full Constructor - Automatically adds to list
+	ACS_File(int outerDepth, string name, bool isImporting, bool isLoaded, bool isProcessed)
+	{
+		init();
+		set(outerDepth);
+		set(name);
+		set(isImporting);
+		set(isLoaded);
+		set(isProcessed);
+		addListItem();
+	}
 };
 
 // PUBLIC FUNCTION PROTOTYPES ----------------------------------------------
 
 void sym_Init();
-ACS_Node *SY_Find(string name);
-ACS_Node *SY_FindLocal(string name);
-ACS_Node *SY_FindGlobal(string name);
-ACS_Node *SY_InsertLocal(string name, int type);
-ACS_Node *SY_InsertGlobal(string name, int type);
-ACS_Node *SY_InsertGlobalUnique(string name, int type);
-void SY_FreeLocals();
-void SY_FreeGlobals();
-void SY_ClearShared();
+ACS_Node *sym_Find(string name);
+ACS_Node *sym_FindLocal(string name);
+ACS_Node *sym_FindGlobal(string name);
+ACS_Node *sym_InsertLocal(string name, NodeType type);
+ACS_Node *sym_InsertGlobal(string name, NodeType type);
+ACS_Node *sym_InsertGlobalUnique(string name, NodeType type);
+void sym_FreeLocals();
+void sym_FreeGlobals();
+void sym_ClearShared();
 
 // PUBLIC DATA DECLARATIONS ------------------------------------------------
 
-ConstList	acs_Constants;	// List of all constants
-VarList		acs_Variables;	// List of all variables
-ArrayList	acs_Arrays;		// List of all arrays
-FunctList	acs_Functions;	// List of all functions
-FunctList	acs_Operators;	// List of new operators
-TypeList	acs_Types;		// List of new types / structs
-FunCallList acs_FuncCall;	// List of commands in a script / function / method
-DepthList	acs_Depths;		// List of depths within the code
-NodeList	acs_Nodes;		// List of identifiers, and what they are
+ConstList	sym_Constants;	// List of all constants
+VarList		sym_Variables;	// List of all variables
+VarList		sym_Structs;	// List of all structs
+ArrayList	sym_Arrays;		// List of all arrays
+FunctList	sym_Functions;	// List of all functions
+FunctList	sym_Operators;	// List of new operators
+FunCallList sym_FuncCall;	// List of commands in a script / function / method
+
+// List of new types / structs
+// Contains within it the operators, members, constructors, and methods
+// specific to itself
+TypeList	sym_Types;
+
+DepthList	sym_Depths;		// List of depths within the code
+NodeList	sym_Nodes;		// List of identifiers, and what they are
+ScriptList	sym_Scripts;	// List of all defined scripts
+FileList	sym_Files;		// List of loaded and referenced acs files
 
 extern int pa_CurrentDepth;	// Current statement depth
 extern int pa_FileDepth;	// Outermost level in the current file

@@ -1,4 +1,3 @@
-
 //**************************************************************************
 //**
 //** error.h
@@ -9,14 +8,14 @@
 
 // HEADER FILES ------------------------------------------------------------
 
-#include <stdarg.h>
+#include <cstdarg>
 #include "common.h"
 
 // MACROS ------------------------------------------------------------------
 
 // TYPES -------------------------------------------------------------------
 
-enum error_t : int
+enum ErrorNumber : int
 {
 	ERR_NONE = 0,
 	ERR_NO_SYMBOL_MEM = 10,
@@ -167,10 +166,5 @@ void ERR_Finish();
 void ERR_Exit(int error, bool info, ...);
 void ERR_RemoveErrorFile();
 void ERR_BadAlloc();
-void ERR_VerifyUserErrorFile();
 
 // PUBLIC DATA DECLARATIONS ------------------------------------------------
-
-string UserErrorFileName;		// User defined error file name
-								// TODO: Maybe add the ability to add a path?
-								// TODO: Add error checking.

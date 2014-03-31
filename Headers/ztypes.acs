@@ -4,12 +4,5 @@
 //**
 //**************************************************************************
 
-method int toInt()
-{
-	return (this / _FixedShift);
-}
-
-typedef int tid;
 //typedef int char;
 typedef int byte;
-typedef str string;

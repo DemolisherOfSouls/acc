@@ -1,13 +1,12 @@
-
 //**************************************************************************
 //**
-//** parse.c
+//** parse.cpp
 //**
 //**************************************************************************
 
 // HEADER FILES ------------------------------------------------------------
 
-#include <assert.h>
+#include <cassert>
 
 #include "common.h"
 #include "parse.h"
@@ -28,7 +27,7 @@
 
 // TYPES -------------------------------------------------------------------
 
-enum statement_t : int
+enum StatementType : int
 {
 	STMT_SCRIPT,
 	STMT_IF,
@@ -36,16 +35,18 @@ enum statement_t : int
 	STMT_DO,
 	STMT_WHILEUNTIL,
 	STMT_SWITCH,
-	STMT_FOR
+	STMT_FOR,
+	STMT_CLASSSTRUCT,
+	STMT_GENERIC
 };
 
-struct loopInfo_t 
+struct LoopInfo
 {
 	int level;
 	int address;
 };
 
-struct caseInfo_t : public loopInfo_t
+struct CaseInfo : public LoopInfo
 {
 	int value;
 	bool isDefault;
@@ -53,12 +54,12 @@ struct caseInfo_t : public loopInfo_t
 
 struct prefunc_t
 {
-	struct prefunc_t *next;
+	prefunc_t *next;
 	ACS_Node *node;
 	int address;
 	int argcount;
 	int line;
-	char *source;
+	string source;
 };
 
 // EXTERNAL FUNCTION PROTOTYPES --------------------------------------------
@@ -77,8 +78,8 @@ static void OuterSpecialDef();
 static void OuterDefine(bool force);
 static void OuterInclude();
 static void OuterImport();
-static bool ProcessStatement(statement_t owner);
-static void LeadingCompoundStatement(statement_t owner);
+static bool ProcessStatement(StatementType owner);
+static void LeadingCompoundStatement(StatementType owner);
 static void LeadingVarDeclare();
 static void LeadingLineSpecial(bool executewait);
 static void LeadingFunction(bool executewait);
@@ -88,10 +89,10 @@ static void ActionOnCharRange(bool write);
 static void LeadingStrcpy();
 static void LeadingPrint();
 static void LeadingHudMessage();
-static void LeadingVarAssign(symbolNode_t *sym);
-static pcd_t GetAssignPCD(tokenType_t token, int type);
-static void LeadingInternFunc(symbolNode_t *sym);
-static void LeadingScriptFunc(symbolNode_t *sym);
+static void LeadingVarAssign(ACS_Node *sym);
+static pCode GetAssignPCD(tokenType_t token, int type);
+static void LeadingInternFunc(ACS_Node *sym);
+static void LeadingScriptFunc(ACS_Node *sym);
 static void LeadingSuspend();
 static void LeadingTerminate();
 static void LeadingRestart();
@@ -108,7 +109,7 @@ static void LeadingContinue();
 static void LeadingCreateTranslation();
 static void LeadingIncDec(int token);
 static void PushCase(int value, bool isDefault);
-static caseInfo_t *GetCaseInfo();
+static CaseInfo *GetCaseInfo();
 static int CaseInfoCmp(const void *a, const void *b);
 static bool DefaultInCurrent();
 static void PushBreak();
@@ -117,27 +118,27 @@ static bool BreakAncestor();
 static void PushContinue();
 static void WriteContinues(int address);
 static bool ContinueAncestor();
-static void ProcessInternFunc(symbolNode_t *sym);
-static void ProcessScriptFunc(symbolNode_t *sym, bool discardReturn);
+static void ProcessInternFunc(ACS_Node *node);
+static void ProcessScriptFunc(ACS_Node *node, bool discardReturn);
 static void EvalExpression();
 static void ExprLevX(int level);
 static void ExprLevA();
 static void ExprFactor();
 static void ConstExprFactor();
-static void SendExprCommand(pcd_t pcd);
+static void SendExprCommand(pCode pcd);
 static void PushExStk(int value);
 static int PopExStk();
-static pcd_t TokenToPCD(tokenType_t token);
-static pcd_t GetPushVarPCD(int symType);
-static pcd_t GetIncDecPCD(tokenType_t token, int symbol);
+static pCode TokenToPCD(tokenType_t token);
+static pCode GetPushVarPCD(int symType);
+static pCode GetIncDecPCD(tokenType_t token, int symbol);
 static int EvalConstExpression();
-static void ParseArrayIndices(symbolNode_t *sym, int requiredIndices);
-static void InitializeArray(symbolNode_t *sym, int dims[MAX_ARRAY_DIMS], int size);
-static symbolNode_t *DemandSymbol(char *name);
-static symbolNode_t *SpeculateSymbol(char *name, bool hasReturn);
-static symbolNode_t *SpeculateFunction(const char *name, bool hasReturn);
-static void UnspeculateFunction(symbolNode_t *sym);
-static void AddScriptFuncRef(symbolNode_t *sym, int address, int argcount);
+static void ParseArrayIndices(ACS_Node *node, int requiredIndices);
+static void InitializeArray(ACS_Node *node, int dims[MAX_ARRAY_DIMS], int size);
+static ACS_Node *DemandSymbol(string name);
+static ACS_Node *SpeculateSymbol(string name, bool hasReturn);
+static ACS_Node *SpeculateFunction(const string& name, bool hasReturn);
+static void UnspeculateFunction(ACS_Node *node);
+static void AddScriptFuncRef(ACS_Node *node, int address, int argcount);
 static void CheckForUndefinedFunctions();
 static void SkipBraceBlock(int depth);
 
@@ -146,39 +147,35 @@ static void SkipBraceBlock(int depth);
 // PUBLIC DATA DEFINITIONS -------------------------------------------------
 
 int pa_ScriptCount;
-struct ScriptTypes *pa_TypedScriptCounts;
+ScriptType *pa_TypedScriptCounts;
 int pa_MapVarCount;
 int pa_WorldVarCount;
 int pa_GlobalVarCount;
 int pa_WorldArrayCount;
 int pa_GlobalArrayCount;
-enum ImportModes ImportMode = IMPORT_None;
+ImportModes ImportMode = IMPORT_None;
 bool ExporterFlagged;
 bool pa_ConstExprIsString;
+ACS_File *currentFile;
 int pa_CurrentDepth = 0;	// Current statement depth
 int pa_FileDepth = 0;		// Outermost level in the current file
 
 // PRIVATE DATA DEFINITIONS ------------------------------------------------
 
+static auto StatementHistory = vector<StatementType>(MAX_STATEMENT_DEPTH);
+static auto BreakInfo = vector<LoopInfo>(MAX_BREAK);
+static auto ContinueInfo = vector<LoopInfo>(MAX_CONTINUE);
+static auto CaseList = vector<CaseInfo>(MAX_CASE);
 static byte ScriptVarCount;
-static statement_t StatementHistory[MAX_STATEMENT_DEPTH];
-static int StatementIndex;
-static loopInfo_t BreakInfo[MAX_BREAK];
-static int BreakIndex;
-static loopInfo_t ContinueInfo[MAX_CONTINUE];
-static int ContinueIndex;
-static caseInfo_t CaseInfo[MAX_CASE];
-static int CaseIndex;
-static int StatementLevel;
-static int ExprStack[EXPR_STACK_DEPTH];
-static int ExprStackIndex;
+static auto ExprStack = vector<int>(EXPR_STACK_DEPTH);
 static bool ConstantExpression;
-static symbolNode_t *InsideFunction;
+static ACS_Node *InsideFunction;
 static prefunc_t *FillinFunctions;
 static prefunc_t **FillinFunctionsLatest = &FillinFunctions;
 static bool ArrayHasStrings;
 
-static int AdjustStmtLevel[] =
+//Always?
+static int AdjustStmtLevel[]
 {
 	false,		// STMT_SCRIPT
 	true,		// STMT_IF
@@ -186,10 +183,12 @@ static int AdjustStmtLevel[] =
 	true,		// STMT_DO
 	true,		// STMT_WHILEUNTIL
 	true,		// STMT_SWITCH
-	true		// STMT_FOR
+	true,		// STMT_FOR
+	true,		// STMT_CLASSSTRUCT
+	true		// STMT_GENERIC
 };
 
-static bool IsBreakRoot[] =
+static bool IsBreakRoot[]
 {
 	false,		// STMT_SCRIPT
 	false,		// STMT_IF
@@ -197,10 +196,12 @@ static bool IsBreakRoot[] =
 	true,		// STMT_DO
 	true,		// STMT_WHILEUNTIL
 	true,		// STMT_SWITCH
-	true		// STMT_FOR
+	true,		// STMT_FOR
+	false,		// STMT_CLASSSTRUCT
+	false		// STMT_GENERIC
 };
 
-static bool IsContinueRoot[] =
+static bool IsContinueRoot[]
 {
 	false,		// STMT_SCRIPT
 	false,		// STMT_IF
@@ -208,47 +209,49 @@ static bool IsContinueRoot[] =
 	true,		// STMT_DO
 	true,		// STMT_WHILEUNTIL
 	false,		// STMT_SWITCH
-	true		// STMT_FOR
+	true,		// STMT_FOR
+	false,		// STMT_CLASSSTRUCT
+	false		// STMT_GENERIC
 };
 
-static tokenType_t LevAOps[] =
+static tokenType_t LevAOps[]
 {
 	TK_ORLOGICAL,
 	TK_NONE
 };
 
-static tokenType_t LevBOps[] =
+static tokenType_t LevBOps[]
 {
 	TK_ANDLOGICAL,
 	TK_NONE
 };
 
-static tokenType_t LevCOps[] =
+static tokenType_t LevCOps[]
 {
 	TK_ORBITWISE,
 	TK_NONE
 };
 
-static tokenType_t LevDOps[] =
+static tokenType_t LevDOps[]
 {
 	TK_EORBITWISE,
 	TK_NONE
 };
 
-static tokenType_t LevEOps[] =
+static tokenType_t LevEOps[]
 {
 	TK_ANDBITWISE,
 	TK_NONE
 };
 
-static tokenType_t LevFOps[] =
+static tokenType_t LevFOps[]
 {
 	TK_EQ,
 	TK_NE,
 	TK_NONE
 };
 
-static tokenType_t LevGOps[] =
+static tokenType_t LevGOps[]
 {
 	TK_LT,
 	TK_LE,
@@ -257,21 +260,21 @@ static tokenType_t LevGOps[] =
 	TK_NONE
 };
 
-static tokenType_t LevHOps[] =
+static tokenType_t LevHOps[]
 {
 	TK_LSHIFT,
 	TK_RSHIFT,
 	TK_NONE
 };
 
-static tokenType_t LevIOps[] =
+static tokenType_t LevIOps[]
 {
 	TK_PLUS,
 	TK_MINUS,
 	TK_NONE
 };
 
-static tokenType_t LevJOps[] =
+static tokenType_t LevJOps[]
 {
 	TK_ASTERISK,
 	TK_SLASH,
@@ -279,7 +282,7 @@ static tokenType_t LevJOps[] =
 	TK_NONE
 };
 
-static tokenType_t *OpsList[] =
+static tokenType_t *OpsList[]
 {
 	LevAOps,
 	LevBOps,
@@ -294,7 +297,7 @@ static tokenType_t *OpsList[] =
 	NULL
 };
 
-static tokenType_t AssignOps[] =
+static tokenType_t AssignOps[]
 {
 	TK_ASSIGN,
 	TK_ADDASSIGN,
@@ -310,22 +313,22 @@ static tokenType_t AssignOps[] =
 	TK_NONE
 };
 
-static struct ScriptTypes ScriptCounts[] =
+static ScriptType ScriptCounts[]
 {
-	{ "closed",			0,							0 },
-	{ "open",			OPEN_SCRIPTS_BASE,			0 },
-	{ "respawn",		RESPAWN_SCRIPTS_BASE,		0 },
-	{ "death",			DEATH_SCRIPTS_BASE,			0 },
-	{ "enter",			ENTER_SCRIPTS_BASE,			0 },
-	{ "pickup",			PICKUP_SCRIPTS_BASE,		0 },
-	{ "bluereturn",		BLUE_RETURN_SCRIPTS_BASE,	0 },
-	{ "redreturn",		RED_RETURN_SCRIPTS_BASE,	0 },
-	{ "whitereturn",	WHITE_RETURN_SCRIPTS_BASE,	0 },
-	{ "lightning",		LIGHTNING_SCRIPTS_BASE,		0 },
-	{ "disconnect",		DISCONNECT_SCRIPTS_BASE,	0 },
-	{ "unloading",		UNLOADING_SCRIPTS_BASE,		0 },
-	{ "return",			RETURN_SCRIPTS_BASE,		0 },
-	{ NULL,				-1,							0 }
+	{ "closed",			ST_CLOSED,			0 },
+	{ "open",			ST_OPEN,			0 },
+	{ "respawn",		ST_RESPAWN,			0 },
+	{ "death",			ST_DEATH,			0 },
+	{ "enter",			ST_ENTER,			0 },
+	{ "pickup",			ST_PICKUP,			0 },
+	{ "bluereturn",		ST_BLUE_RETURN,		0 },
+	{ "redreturn",		ST_RED_RETURN,		0 },
+	{ "whitereturn",	ST_WHITE_RETURN,	0 },
+	{ "lightning",		ST_LIGHTNING,		0 },
+	{ "disconnect",		ST_DISCONNECT,		0 },
+	{ "unloading",		ST_UNLOADING,		0 },
+	{ "return",			ST_RETURN,			0 },
+	{ "",				-1,					0 }
 };
 
 // CODE --------------------------------------------------------------------
@@ -335,14 +338,11 @@ static struct ScriptTypes ScriptCounts[] =
 // PA_Parse
 //
 //==========================================================================
-
 void PA_Parse()
 {
-	int i;
-
 	pa_ScriptCount = 0;
 	pa_TypedScriptCounts = ScriptCounts;
-	for (i = 0; ScriptCounts[i].TypeName != NULL; i++)
+	for (int i = 0; ScriptCounts[i].TypeName != NULL; i++)
 	{
 		ScriptCounts[i].TypeCount = 0;
 	}
@@ -362,12 +362,9 @@ void PA_Parse()
 // CountScript
 //
 //==========================================================================
-
 static void CountScript(int type)
 {
-	int i;
-
-	for (i = 0; ScriptCounts[i].TypeName != NULL; i++)
+	for (int i = 0; ScriptCounts[i].TypeName != NULL; i++)
 	{
 		if (ScriptCounts[i].TypeBase == type)
 		{
@@ -388,7 +385,6 @@ static void CountScript(int type)
 // Outside
 //
 //==========================================================================
-
 static void Outside()
 {
 	bool done = false;
@@ -414,12 +410,12 @@ static void Outside()
 			case TK_NOCOMPACT:
 				if (ImportMode != IMPORT_Importing)
 				{
-					if (pc_Address != 8)
+					if (pCode_Current != 8)
 					{
 						ERR_Error(ERR_NOCOMPACT_NOT_HERE, true);
 					}
-					MS_Message(MSG_DEBUG, "Forcing NoShrink\n");
-					pc_NoShrink = true;
+					Message(MSG_DEBUG, "Forcing NoShrink");
+					pCode_NoShrink = true;
 				}
 				TK_SkipTo(TK_NUMBERSIGN);
 				break;
@@ -428,7 +424,7 @@ static void Outside()
 				{
 					MS_Message(MSG_DEBUG, "Will write WadAuthor-compatible object\n");
 					MS_Message(MSG_NORMAL, "You don't need to use #wadauthor anymore.\n");
-					pc_WadAuthor = true;
+					pCode_WadAuthor = true;
 				}
 				TK_SkipTo(TK_NUMBERSIGN);
 				break;
@@ -436,7 +432,7 @@ static void Outside()
 				if (ImportMode != IMPORT_Importing)
 				{
 					MS_Message(MSG_DEBUG, "Will write WadAuthor-incompatible object\n");
-					pc_WadAuthor = false;
+					pCode_WadAuthor = false;
 				}
 				TK_SkipTo(TK_NUMBERSIGN);
 				break;
@@ -444,8 +440,8 @@ static void Outside()
 				if (ImportMode != IMPORT_Importing)
 				{
 					MS_Message(MSG_DEBUG, "Strings will be encrypted\n");
-					pc_EncryptStrings = true;
-					if (pc_EnforceHexen)
+					pCode_EncryptStrings = true;
+					if (pCode_EnforceHexen)
 					{
 						ERR_Error(ERR_HEXEN_COMPAT, true);
 					}
@@ -507,15 +503,6 @@ static void Outside()
 		case TK_BOOL:
 			OuterMapVar(VAR_BOOL);
 			break;
-		case TK_FIXED:
-			OuterMapVar(VT_FIXED);
-			break;
-		case TK_TID:
-			OuterMapVar(VT_TID);
-			break;
-		case TK_ACTOR:
-			//OuterMapStruct(VT_ACTOR);
-			break;
 		case TK_CLASS:
 			//OuterMapStruct(VT_CLASS);
 			break;
@@ -554,7 +541,7 @@ static void OuterScript()
 	MS_Message(MSG_DEBUG, "---- OuterScript ----\n");
 	BreakIndex = 0;
 	CaseIndex = 0;
-	StatementLevel = 0;
+	pa_CurrentDepth = 0;
 	ScriptVarCount = 0;
 	SY_FreeLocals();
 	TK_NextToken();
@@ -641,7 +628,7 @@ static void OuterScript()
 				else if(ScriptVarCount < 4)
 				{
 					sym = SY_InsertLocal(tk_String, SY_SCRIPTVAR);
-					sym->info.var.index = ScriptVarCount;
+					sym->cmd->var.index = ScriptVarCount;
 					ScriptVarCount++;
 				}
 				TK_NextToken();
@@ -652,7 +639,7 @@ static void OuterScript()
 		switch(tk_Token)
 		{
 		case TK_DISCONNECT:
-			scriptType = DISCONNECT_SCRIPTS_BASE;
+			scriptType = DISCONNECT;
 			if(ScriptVarCount != 1)
 			{
 				ERR_Error(ERR_DISCONNECT_NEEDS_1_ARG, true);
@@ -683,51 +670,51 @@ static void OuterScript()
 	else switch (tk_Token)
 	{
 	case TK_OPEN:
-		scriptType = OPEN_SCRIPTS_BASE;
+		scriptType = OPEN;
 		break;
 
 	case TK_RESPAWN:	// [BC]
-		scriptType = RESPAWN_SCRIPTS_BASE;
+		scriptType = RESPAWN;
 		break;
 
 	case TK_DEATH:		// [BC]
-		scriptType = DEATH_SCRIPTS_BASE;
+		scriptType = DEATH;
 		break;
 
 	case TK_ENTER:		// [BC]
-		scriptType = ENTER_SCRIPTS_BASE;
+		scriptType = ENTER;
 		break;
 
 	case TK_RETURN:
-		scriptType = RETURN_SCRIPTS_BASE;
+		scriptType = RETURN;
 		break;
 
 	case TK_PICKUP:		// [BC]
-		scriptType = PICKUP_SCRIPTS_BASE;
+		scriptType = PICKUP;
 		break;
 
 	case TK_BLUERETURN:	// [BC]
-		scriptType = BLUE_RETURN_SCRIPTS_BASE;
+		scriptType = BLUE_RETURN;
 		break;
 
 	case TK_REDRETURN:	// [BC]
-		scriptType = RED_RETURN_SCRIPTS_BASE;
+		scriptType = RED_RETURN;
 		break;
 
 	case TK_WHITERETURN:	// [BC]
-		scriptType = WHITE_RETURN_SCRIPTS_BASE;
+		scriptType = WHITE_RETURN;
 		break;
 
 	case TK_LIGHTNING:
-		scriptType = LIGHTNING_SCRIPTS_BASE;
+		scriptType = LIGHTNING;
 		break;
 
 	case TK_UNLOADING:
-		scriptType = UNLOADING_SCRIPTS_BASE;
+		scriptType = UNLOADING;
 		break;
 
 	case TK_DISCONNECT:
-		scriptType = DISCONNECT_SCRIPTS_BASE;
+		scriptType = DISCONNECT;
 		ERR_Error (ERR_DISCONNECT_NEEDS_1_ARG, true);
 		break;
 
@@ -752,12 +739,12 @@ static void OuterScript()
 	}
 	CountScript(scriptType);
 	PC_AddScript(scriptNumber, scriptType, scriptFlags, ScriptVarCount);
-	pc_LastAppendedCommand = PCD_NOP;
+	pCode_LastAppendedCommand = PCD_NOP;
 	if(ProcessStatement(STMT_SCRIPT) == false)
 	{
 		ERR_Error(ERR_INVALID_STATEMENT, true);
 	}
-	if(pc_LastAppendedCommand != PCD_TERMINATE)
+	if(pCode_LastAppendedCommand != PCD_TERMINATE)
 	{
 		PC_AppendCmd(PCD_TERMINATE);
 	}
@@ -782,7 +769,7 @@ static void OuterFunction()
 	importing = ImportMode;
 	BreakIndex = 0;
 	CaseIndex = 0;
-	StatementLevel = 0;
+	pa_CurrentDepth = 0;
 	ScriptVarCount = 0;
 	SY_FreeLocals();
 	TK_NextToken();
@@ -804,27 +791,27 @@ static void OuterFunction()
 			TK_NextToken();
 			return;
 		}
-		if(!sym->info.scriptFunc.predefined)
+		if(!sym->cmd->scriptFunc.predefined)
 		{
 			ERR_Error(ERR_FUNCTION_ALREADY_DEFINED, true);
-			ERR_ErrorAt(sym->info.scriptFunc.sourceName, sym->info.scriptFunc.sourceLine);
+			ERR_ErrorAt(sym->cmd->scriptFunc.sourceName, sym->cmd->scriptFunc.sourceLine);
 			ERR_Error(ERR_NONE, true, "Previous definition was here.");
 			SkipBraceBlock(0);
 			TK_NextToken();
 			return;
 		}
-		if(sym->info.scriptFunc.hasReturnValue && !hasReturn)
+		if(sym->cmd->scriptFunc.hasReturnValue && !hasReturn)
 		{
 			ERR_Error(ERR_PREVIOUS_NOT_VOID, true);
-			ERR_ErrorAt(sym->info.scriptFunc.sourceName, sym->info.scriptFunc.sourceLine);
+			ERR_ErrorAt(sym->cmd->scriptFunc.sourceName, sym->cmd->scriptFunc.sourceLine);
 			ERR_Error(ERR_NONE, true, "Previous use was here.");
 		}
 	}
 	else
 	{
 		sym = SY_InsertGlobal(tk_String, SY_SCRIPTFUNC);
-		sym->info.scriptFunc.address = (importing == IMPORT_Importing ? 0 : pc_Address);
-		sym->info.scriptFunc.predefined = false;
+		sym->cmd->scriptFunc.address = (importing == IMPORT_Importing ? 0 : pCode_Current);
+		sym->cmd->scriptFunc.predefined = false;
 	}
 	defLine = tk_Line;
 
@@ -878,7 +865,7 @@ static void OuterFunction()
 			else
 			{
 				local = SY_InsertLocal(tk_String, type);
-				local->info.var.index = ScriptVarCount;
+				local->cmd->var.index = ScriptVarCount;
 				ScriptVarCount++;
 			}
 			TK_NextToken();
@@ -886,24 +873,24 @@ static void OuterFunction()
 		TK_TokenMustBe(TK_RPAREN, ERR_MISSING_RPAREN);
 	}
 
-	sym->info.scriptFunc.sourceLine = defLine;
-	sym->info.scriptFunc.sourceName = tk_SourceName;
-	sym->info.scriptFunc.argCount = ScriptVarCount;
-	sym->info.scriptFunc.address = (importing == IMPORT_Importing) ? 0 : pc_Address;
-	sym->info.scriptFunc.hasReturnValue = hasReturn;
+	sym->cmd->scriptFunc.sourceLine = defLine;
+	sym->cmd->scriptFunc.sourceName = tk_SourceName;
+	sym->cmd->scriptFunc.argCount = ScriptVarCount;
+	sym->cmd->scriptFunc.address = (importing == IMPORT_Importing) ? 0 : pCode_Current;
+	sym->cmd->scriptFunc.hasReturnValue = hasReturn;
 
 	if(importing == IMPORT_Importing)
 	{
 		SkipBraceBlock(0);
 		TK_NextToken();
-		sym->info.scriptFunc.predefined = false;
-		sym->info.scriptFunc.varCount = ScriptVarCount;
+		sym->cmd->scriptFunc.predefined = false;
+		sym->cmd->scriptFunc.varCount = ScriptVarCount;
 		return;
 	}
 
 	TK_NextToken();
 	InsideFunction = sym;
-	pc_LastAppendedCommand = PCD_NOP;
+	pCode_LastAppendedCommand = PCD_NOP;
 
 	// If we just call ProcessStatement(STMT_SCRIPT), and this function
 	// needs to return a value but the last pcode output was not a return,
@@ -917,8 +904,8 @@ static void OuterFunction()
 	TK_NextToken();
 	do {} while(ProcessStatement(STMT_SCRIPT) == true);
 
-	if(pc_LastAppendedCommand != PCD_RETURNVOID &&
-	   pc_LastAppendedCommand != PCD_RETURNVAL)
+	if(pCode_LastAppendedCommand != PCD_RETURNVOID &&
+	   pCode_LastAppendedCommand != PCD_RETURNVAL)
 	{
 		if(hasReturn)
 		{
@@ -931,9 +918,9 @@ static void OuterFunction()
 	TK_TokenMustBe(TK_RBRACE, ERR_INVALID_STATEMENT);
 	TK_NextToken();
 
-	sym->info.scriptFunc.predefined = false;
-	sym->info.scriptFunc.varCount = ScriptVarCount -
-		sym->info.scriptFunc.argCount;
+	sym->cmd->scriptFunc.predefined = false;
+	sym->cmd->scriptFunc.varCount = ScriptVarCount -
+		sym->cmd->scriptFunc.argCount;
 	PC_AddFunction(sym);
 	UnspeculateFunction(sym);
 	InsideFunction = NULL;
@@ -972,11 +959,11 @@ static void OuterMapVar(int local)
 						: SY_InsertGlobal(tk_String, SY_MAPVAR);
 			if(ImportMode == IMPORT_Importing)
 			{
-				sym->info.var.index = index = 0;
+				sym->cmd->var.index = index = 0;
 			}
 			else
 			{
-				sym->info.var.index = index = pa_MapVarCount;
+				sym->cmd->var.index = index = pa_MapVarCount;
 				if (!local)
 				{ // Local variables are not exported
 					PC_NameMapVariable(index, sym);
@@ -1054,22 +1041,22 @@ static void OuterMapVar(int local)
 				}
 				MS_Message(MSG_DEBUG, "%s changed to an array of size %d\n", sym->name, size);
 				sym->type = SY_MAPARRAY;
-				sym->info.array.index = index;
-				sym->info.array.ndim = ndim;
-				sym->info.array.size = size;
+				sym->cmd->array.index = index;
+				sym->arr->dimAmt = ndim;
+				sym->cmd->array.size = size;
 				if(ndim > 0)
 				{
-					sym->info.array.dimensions[ndim-1] = 1;
+					sym->cmd->array.dimensions[ndim-1] = 1;
 					for(i = ndim - 2; i >= 0; --i)
 					{
-						sym->info.array.dimensions[i] =
-							sym->info.array.dimensions[i+1] * dims[i+1];
+						sym->arr->dimensions[i] =
+							sym->cmd->array.dimensions[i+1] * dims[i+1];
 					}
 				}
 				MS_Message(MSG_DEBUG, " - with multipliers ");
 				for(i = 0; i < ndim; ++i)
 				{
-					MS_Message(MSG_DEBUG, "[%d]", sym->info.array.dimensions[i]);
+					MS_Message(MSG_DEBUG, "[%d]", sym->arr->dimensions[i]);
 				}
 				MS_Message(MSG_DEBUG, "\n");
 				if(tk_Token == TK_ASSIGN)
@@ -1145,10 +1132,10 @@ static void OuterWorldVar(bool isGlobal)
 					while(tk_Token == TK_LBRACKET);
 				}
 				sym = SY_InsertGlobal(tk_String, isGlobal ? SY_GLOBALARRAY : SY_WORLDARRAY);
-				sym->info.array.index = index;
-				sym->info.array.ndim = 1;
-				sym->info.array.size = 0x7fffffff;	// not used
-				memset(sym->info.array.dimensions, 0, sizeof(sym->info.array.dimensions));
+				sym->cmd->array.index = index;
+				sym->arr->dimAmt = 1;
+				sym->cmd->array.size = 0x7fffffff;	// not used
+				memset(sym->cmd->array.dimensions, 0, sizeof(sym->cmd->array.dimensions));
 
 				if (isGlobal)
 					pa_GlobalArrayCount++;
@@ -1158,7 +1145,7 @@ static void OuterWorldVar(bool isGlobal)
 			else
 			{
 				sym = SY_InsertGlobal(tk_String, isGlobal ? SY_GLOBALVAR : SY_WORLDVAR);
-				sym->info.var.index = index;
+				sym->cmd->var.index = index;
 				if (isGlobal)
 					pa_GlobalVarCount++;
 				else
@@ -1206,14 +1193,14 @@ static void OuterSpecialDef()
 			sym = SY_InsertGlobalUnique(tk_String, SY_SPECIAL);
 			TK_NextTokenMustBe(TK_LPAREN, ERR_MISSING_LPAREN);
 			TK_NextTokenMustBe(TK_NUMBER, ERR_MISSING_SPEC_ARGC);
-			sym->info.special.value = special;
-			sym->info.special.argCount = tk_Number | (tk_Number << 16);
+			sym->cmd->special.value = special;
+			sym->cmd->special.argCount = tk_Number | (tk_Number << 16);
 			TK_NextToken();
 			if(tk_Token == TK_COMMA)
 			{ // Get maximum arg count
 				TK_NextTokenMustBe(TK_NUMBER, ERR_MISSING_SPEC_ARGC);
-				sym->info.special.argCount =
-					(sym->info.special.argCount & 0xffff) | (tk_Number << 16);
+				sym->cmd->special.argCount =
+					(sym->cmd->special.argCount & 0xffff) | (tk_Number << 16);
 			}
 			else
 			{
@@ -1233,27 +1220,30 @@ static void OuterSpecialDef()
 //
 //==========================================================================
 
-static void OuterDefine(bool force)
+static void OuterDefine(bool libdef)
 {
 	int value;
-	symbolNode_t *sym;
+	ACS_Node *node;
+	ACS_Const *def = new ACS_Const(;
 
-	MS_Message(MSG_DEBUG, "---- OuterDefine %s----\n",
-		force ? "(forced) " : "");
+	string libtext = libdef ? "(libdef) " : "";
+
+	MS_Message(MSG_DEBUG, "---- OuterDefine " + libtext + "----\n");
+
 	TK_NextTokenMustBe(TK_IDENTIFIER, ERR_INVALID_IDENTIFIER);
-	sym = SY_InsertGlobalUnique(tk_String, SY_CONSTANT);
+	node = SY_InsertGlobalUnique(tk_String, SY_CONSTANT);
 	TK_NextToken();
 	value = EvalConstExpression();
 	MS_Message(MSG_DEBUG, "Constant value: %d\n", value);
-	sym->info.constant.value = value;
+	node->cmd->.value = value;
 	// Defines inside an import are deleted when the import is popped.
 	if(ImportMode != IMPORT_Importing || force)
 	{
-		sym->info.constant.fileDepth = 0;
+		sym->cmd->constant.fileDepth = 0;
 	}
 	else
 	{
-		sym->info.constant.fileDepth = TK_GetDepth();
+		sym->cmd->constant.fileDepth = TK_GetDepth();
 	}
 }
 
@@ -1316,7 +1306,7 @@ static bool ProcessStatement(statement_t owner)
 		ERR_Exit(ERR_STATEMENT_OVERFLOW, true);
 	}
 	StatementHistory[StatementIndex++] = owner;
-	StatementLevel += AdjustStmtLevel[owner];
+	pa_CurrentDepth += AdjustStmtLevel[owner];
 	switch(tk_Token)
 	{
 		case TK_INT:
@@ -1466,12 +1456,12 @@ static bool ProcessStatement(statement_t owner)
 
 		default:
 			StatementIndex--;
-			StatementLevel -= AdjustStmtLevel[owner];
+			pa_CurrentDepth -= AdjustStmtLevel[owner];
 			return false;
 			break;
 	}
 	StatementIndex--;
-	StatementLevel -= AdjustStmtLevel[owner];
+	pa_CurrentDepth -= AdjustStmtLevel[owner];
 	return true;
 }
 
@@ -1483,12 +1473,12 @@ static bool ProcessStatement(statement_t owner)
 
 static void LeadingCompoundStatement(statement_t owner)
 {
-	//StatementLevel += AdjustStmtLevel[owner];
+	//pa_CurrentDepth += AdjustStmtLevel[owner];
 	TK_NextToken(); // Eat the TK_LBRACE
 	do {} while(ProcessStatement(owner) == true);
 	TK_TokenMustBe(TK_RBRACE, ERR_INVALID_STATEMENT);
 	TK_NextToken();
-	//StatementLevel -= AdjustStmtLevel[owner];
+	//pa_CurrentDepth -= AdjustStmtLevel[owner];
 }
 
 //==========================================================================
@@ -1535,7 +1525,7 @@ static void LeadingVarDeclare()
 		else
 		{
 			sym = SY_InsertLocal(tk_String, SY_SCRIPTVAR);
-			sym->info.var.index = ScriptVarCount;
+			sym->cmd->var.index = ScriptVarCount;
 			ScriptVarCount++;
 		}
 		TK_NextToken();
@@ -1551,7 +1541,7 @@ static void LeadingVarDeclare()
 			if(sym != NULL)
 			{
 				PC_AppendCmd(PCD_ASSIGNSCRIPTVAR);
-				PC_AppendShrink(sym->info.var.index);
+				PC_AppendShrink(sym->cmd->var.index);
 			}
 		}
 	} while(tk_Token == TK_COMMA);
@@ -1641,7 +1631,7 @@ static void LeadingLineSpecial(bool executewait)
 	if(direct == false)
 	{
 		PC_AppendCmd(PCD_LSPEC1+(argCount-1));
-		if(pc_NoShrink)
+		if(pCode_NoShrink)
 		{
 			PC_AppendInt(specialValue);
 		}
@@ -1662,7 +1652,7 @@ static void LeadingLineSpecial(bool executewait)
 	{
 		bool useintform;
 
-		if(pc_NoShrink)
+		if(pCode_NoShrink)
 		{
 			PC_AppendCmd(PCD_LSPEC1DIRECT+(argCount-1));
 			PC_AppendInt(specialValue);
@@ -1770,7 +1760,7 @@ static void LeadingFunction(bool executewait)
 	TK_TokenMustBe(TK_RPAREN, ERR_MISSING_RPAREN);
 	TK_NextTokenMustBe(TK_SEMICOLON, ERR_MISSING_SEMICOLON);
 	PC_AppendCmd(PCD_CALLFUNC);
-	if(pc_NoShrink)
+	if(pCode_NoShrink)
 	{
 		PC_AppendInt(argCount);
 		PC_AppendInt(specialValue);
@@ -1875,7 +1865,7 @@ static void ProcessInternFunc(ACS_Node *node)
 		else
 		{
 			direct = true;
-			if (pc_NoShrink || argCount > 2 ||
+			if (pCode_NoShrink || argCount > 2 ||
 				(node->cmd->DirectCMD != PCD_DELAYDIRECT &&
 				node->cmd->DirectCMD != PCD_RANDOMDIRECT))
 			{
@@ -1969,16 +1959,16 @@ static void ProcessInternFunc(ACS_Node *node)
 							switch (node->type)
 							{
 							case SY_SCRIPTVAR:
-								PC_AppendInt(sym->info.var.index | OUTVAR_SCRIPT_SPEC);
+								PC_AppendInt(sym->cmd->var.index | OUTVAR_SCRIPT_SPEC);
 								break;
 							case SY_MAPVAR:
-								PC_AppendInt(sym->info.var.index | OUTVAR_MAP_SPEC);
+								PC_AppendInt(sym->cmd->var.index | OUTVAR_MAP_SPEC);
 								break;
 							case SY_WORLDVAR:
-								PC_AppendInt(sym->info.var.index | OUTVAR_WORLD_SPEC);
+								PC_AppendInt(sym->cmd->var.index | OUTVAR_WORLD_SPEC);
 								break;
 							case SY_GLOBALVAR:
-								PC_AppendInt(sym->info.var.index | OUTVAR_GLOBAL_SPEC);
+								PC_AppendInt(sym->cmd->var.index | OUTVAR_GLOBAL_SPEC);
 								break;
 							default:
 								ERR_Error (ERR_PARM_MUST_BE_VAR, true);
@@ -2036,12 +2026,12 @@ static void ProcessInternFunc(ACS_Node *node)
 	TK_TokenMustBe(TK_RPAREN, argCount > 0 ? ERR_MISSING_RPAREN : ERR_BAD_ARG_COUNT);
 	if(direct == false)
 	{
-		PC_AppendCmd(sym->info.internFunc.stackCommand);
+		PC_AppendCmd(sym->cmd->internFunc.stackCommand);
 	}
 	else if (specialDirect)
 	{
 		bool useintform = false;
-		pcd_t shortpcd;
+		pCode shortpcd;
 
 		switch (node->cmd->DirectCMD)
 		{
@@ -2071,7 +2061,7 @@ static void ProcessInternFunc(ACS_Node *node)
 
 		if (useintform)
 		{
-			PC_AppendCmd(sym->info.internFunc.directCommand);
+			PC_AppendCmd(sym->cmd->internFunc.directCommand);
 			for (i = 0; i < argCount; i++)
 			{
 				PC_AppendInt (argSave[i]);
@@ -2115,7 +2105,7 @@ static void ProcessScriptFunc(ACS_Node *sym, bool discardReturn)
 	int argCount;
 
 	MS_Message(MSG_DEBUG, "---- ProcessScriptFunc ----\n");
-	argCount = sym->info.scriptFunc.argCount;
+	argCount = sym->cmd->scriptFunc.argCount;
 	TK_NextTokenMustBe(TK_LPAREN, ERR_MISSING_LPAREN);
 	i = 0;
 	if(argCount == 0)
@@ -2181,17 +2171,17 @@ static void ProcessScriptFunc(ACS_Node *sym, bool discardReturn)
 	}
 	TK_TokenMustBe(TK_RPAREN, ERR_MISSING_RPAREN);
 	PC_AppendCmd(discardReturn ? PCD_CALLDISCARD : PCD_CALL);
-	if(sym->info.scriptFunc.predefined && ImportMode != IMPORT_Importing)
+	if(sym->cmd->scriptFunc.predefined && ImportMode != IMPORT_Importing)
 	{
-		AddScriptFuncRef(sym, pc_Address, i);
+		AddScriptFuncRef(sym, pCode_Current, i);
 	}
-	if (pc_NoShrink)
+	if (pCode_NoShrink)
 	{
-		PC_AppendInt(sym->info.scriptFunc.funcNumber);
+		PC_AppendInt(sym->cmd->scriptFunc.funcNumber);
 	}
 	else
 	{
-		PC_AppendByte((byte)sym->info.scriptFunc.funcNumber);
+		PC_AppendByte((byte)sym->cmd->scriptFunc.funcNumber);
 	}
 	TK_NextToken();
 }
@@ -2204,7 +2194,7 @@ static void ProcessScriptFunc(ACS_Node *sym, bool discardReturn)
 
 static void BuildPrintString()
 {
-	pcd_t printCmd;
+	pCode printCmd;
 
 	do
 	{
@@ -2262,7 +2252,7 @@ static void BuildPrintString()
 static void ActionOnCharRange(bool write)
 {
 	bool rangeConstraints;
-	symbolNode_t *sym;
+	ACS_Node *sym;
 	TK_NextTokenMustBe(TK_COLON, ERR_MISSING_COLON);
 	TK_NextToken();
 
@@ -2283,16 +2273,16 @@ static void ActionOnCharRange(bool write)
 		ERR_Error(ERR_NOT_AN_ARRAY, true);
 	}
 	TK_NextToken();
-	if(sym->info.array.ndim > 1)
+	if(sym->arr->dimAmt > 1)
 	{
-		ParseArrayIndices(sym, sym->info.array.ndim-1);
+		ParseArrayIndices(sym, sym->arr->dimAmt-1);
 	}
 	else
 	{
 		PC_AppendPushVal(0);
 	}
 
-	PC_AppendPushVal(sym->info.array.index);
+	PC_AppendPushVal(sym->cmd->array.index);
 
 	
 	if (rangeConstraints)
@@ -2506,7 +2496,7 @@ static void LeadingCreateTranslation()
 	PC_AppendCmd(PCD_STARTTRANSLATION);
 	while (tk_Token == TK_COMMA)
 	{
-		pcd_t translationcode;
+		pCode translationcode;
 
 		TK_NextToken();
 		EvalExpression();	// Get first palette entry in range
@@ -2587,7 +2577,7 @@ static void LeadingIf()
 	EvalExpression();
 	TK_TokenMustBe(TK_RPAREN, ERR_MISSING_RPAREN);
 	PC_AppendCmd(PCD_IFNOTGOTO);
-	jumpAddrPtr1 = pc_Address;
+	jumpAddrPtr1 = pCode_Current;
 	PC_SkipInt();
 	TK_NextToken();
 	if(ProcessStatement(STMT_IF) == false)
@@ -2597,19 +2587,19 @@ static void LeadingIf()
 	if(tk_Token == TK_ELSE)
 	{
 		PC_AppendCmd(PCD_GOTO);
-		jumpAddrPtr2 = pc_Address;
+		jumpAddrPtr2 = pCode_Current;
 		PC_SkipInt();
-		PC_WriteInt(pc_Address, jumpAddrPtr1);
+		PC_WriteInt(pCode_Current, jumpAddrPtr1);
 		TK_NextToken();
 		if(ProcessStatement(STMT_ELSE) == false)
 		{
 			ERR_Error(ERR_INVALID_STATEMENT, true);
 		}
-		PC_WriteInt(pc_Address, jumpAddrPtr2);
+		PC_WriteInt(pCode_Current, jumpAddrPtr2);
 	}
 	else
 	{
-		PC_WriteInt(pc_Address, jumpAddrPtr1);
+		PC_WriteInt(pCode_Current, jumpAddrPtr1);
 	}
 }
 
@@ -2633,17 +2623,17 @@ static void LeadingFor()
 	{
 		ERR_Error(ERR_INVALID_STATEMENT, true);
 	}
-	exprAddr = pc_Address;
+	exprAddr = pCode_Current;
 	EvalExpression();
 	TK_TokenMustBe(TK_SEMICOLON, ERR_MISSING_SEMICOLON);
 	TK_NextToken();
 	PC_AppendCmd(PCD_IFGOTO);
-	ifgotoAddr = pc_Address;
+	ifgotoAddr = pCode_Current;
 	PC_SkipInt();
 	PC_AppendCmd(PCD_GOTO);
-	gotoAddr = pc_Address;
+	gotoAddr = pCode_Current;
 	PC_SkipInt();
-	incAddr = pc_Address;
+	incAddr = pCode_Current;
 	forSemicolonHack = true;
 	if(ProcessStatement(STMT_IF) == false)
 	{
@@ -2652,7 +2642,7 @@ static void LeadingFor()
 	forSemicolonHack = false;
 	PC_AppendCmd(PCD_GOTO);
 	PC_AppendInt(exprAddr);
-	PC_WriteInt(pc_Address,ifgotoAddr);
+	PC_WriteInt(pCode_Current,ifgotoAddr);
 	if(ProcessStatement(STMT_FOR) == false)
 	{
 		ERR_Error(ERR_INVALID_STATEMENT, true);
@@ -2661,7 +2651,7 @@ static void LeadingFor()
 	PC_AppendInt(incAddr);
 	WriteContinues(incAddr);
 	WriteBreaks();
-	PC_WriteInt(pc_Address,gotoAddr);
+	PC_WriteInt(pCode_Current,gotoAddr);
 }
 
 //==========================================================================
@@ -2678,13 +2668,13 @@ static void LeadingWhileUntil()
 
 	MS_Message(MSG_DEBUG, "---- LeadingWhileUntil ----\n");
 	stmtToken = tk_Token;
-	topAddr = pc_Address;
+	topAddr = pCode_Current;
 	TK_NextTokenMustBe(TK_LPAREN, ERR_MISSING_LPAREN);
 	TK_NextToken();
 	EvalExpression();
 	TK_TokenMustBe(TK_RPAREN, ERR_MISSING_RPAREN);
 	PC_AppendCmd(stmtToken == TK_WHILE ? PCD_IFNOTGOTO : PCD_IFGOTO);
-	outAddrPtr = pc_Address;
+	outAddrPtr = pCode_Current;
 	PC_SkipInt();
 	TK_NextToken();
 	if(ProcessStatement(STMT_WHILEUNTIL) == false)
@@ -2694,7 +2684,7 @@ static void LeadingWhileUntil()
 	PC_AppendCmd(PCD_GOTO);
 	PC_AppendInt(topAddr);
 
-	PC_WriteInt(pc_Address, outAddrPtr);
+	PC_WriteInt(pCode_Current, outAddrPtr);
 
 	WriteContinues(topAddr);
 	WriteBreaks();
@@ -2713,7 +2703,7 @@ static void LeadingDo()
 	tokenType_t stmtToken;
 
 	MS_Message(MSG_DEBUG, "---- LeadingDo ----\n");
-	topAddr = pc_Address;
+	topAddr = pCode_Current;
 	TK_NextToken();
 	if(ProcessStatement(STMT_DO) == false)
 	{
@@ -2727,7 +2717,7 @@ static void LeadingDo()
 	}
 	stmtToken = tk_Token;
 	TK_NextTokenMustBe(TK_LPAREN, ERR_MISSING_LPAREN);
-	exprAddr = pc_Address;
+	exprAddr = pCode_Current;
 	TK_NextToken();
 	EvalExpression();
 	TK_TokenMustBe(TK_RPAREN, ERR_MISSING_RPAREN);
@@ -2760,7 +2750,7 @@ static void LeadingSwitch()
 	TK_TokenMustBe(TK_RPAREN, ERR_MISSING_RPAREN);
 
 	PC_AppendCmd(PCD_GOTO);
-	switcherAddrPtr = pc_Address;
+	switcherAddrPtr = pCode_Current;
 	PC_SkipInt();
 
 	TK_NextToken();
@@ -2770,13 +2760,13 @@ static void LeadingSwitch()
 	}
 
 	PC_AppendCmd(PCD_GOTO);
-	outAddrPtr = pc_Address;
+	outAddrPtr = pCode_Current;
 	PC_SkipInt();
 
-	PC_WriteInt(pc_Address, switcherAddrPtr);
+	PC_WriteInt(pCode_Current, switcherAddrPtr);
 	defaultAddress = 0;
 
-	if(pc_HexenCase)
+	if(pCode_HexenCase)
 	{
 		while((cInfo = GetCaseInfo()) != NULL)
 		{
@@ -2810,10 +2800,10 @@ static void LeadingSwitch()
 		if (minCase < maxCase)
 		{
 			PC_AppendCmd(PCD_CASEGOTOSORTED);
-			if(pc_Address%4 != 0)
+			if(pCode_Current%4 != 0)
 			{ // Align to a 4-byte boundary
 				int pad = 0;
-				PC_Append((void *)&pad, 4-(pc_Address%4));
+				PC_Append(pad, 4-(pCode_Current%4));
 			}
 			PC_AppendInt(maxCase - minCase);
 			for(; minCase < maxCase; ++minCase)
@@ -2831,7 +2821,7 @@ static void LeadingSwitch()
 		PC_AppendInt(defaultAddress);
 	}
 
-	PC_WriteInt(pc_Address, outAddrPtr);
+	PC_WriteInt(pCode_Current, outAddrPtr);
 
 	WriteBreaks();
 }
@@ -2877,10 +2867,10 @@ static void PushCase(int value, bool isDefault)
 	{
 		ERR_Exit(ERR_CASE_OVERFLOW, true);
 	}
-	CaseInfo[CaseIndex].level = StatementLevel;
+	CaseInfo[CaseIndex].level = pa_CurrentDepth;
 	CaseInfo[CaseIndex].value = value;
 	CaseInfo[CaseIndex].isDefault = isDefault;
-	CaseInfo[CaseIndex].address = pc_Address;
+	CaseInfo[CaseIndex].address = pCode_Current;
 	CaseIndex++;
 }
 
@@ -2896,7 +2886,7 @@ static caseInfo_t *GetCaseInfo()
 	{
 		return NULL;
 	}
-	if(CaseInfo[CaseIndex-1].level > StatementLevel)
+	if(CaseInfo[CaseIndex-1].level > pa_CurrentDepth)
 	{
 		return &CaseInfo[--CaseIndex];
 	}
@@ -2939,7 +2929,7 @@ static bool DefaultInCurrent()
 	for(i = 0; i < CaseIndex; i++)
 	{
 		if(CaseInfo[i].isDefault == true
-			&& CaseInfo[i].level == StatementLevel)
+			&& CaseInfo[i].level == pa_CurrentDepth)
 		{
 			return true;
 		}
@@ -2975,8 +2965,8 @@ static void PushBreak()
 	{
 		ERR_Exit(ERR_BREAK_OVERFLOW, true);
 	}
-	BreakInfo[BreakIndex].level = StatementLevel;
-	BreakInfo[BreakIndex].addressPtr = pc_Address;
+	BreakInfo[BreakIndex].level = pa_CurrentDepth;
+	BreakInfo[BreakIndex].address = pCode_Current;
 	BreakIndex++;
 }
 
@@ -2988,9 +2978,9 @@ static void PushBreak()
 
 static void WriteBreaks()
 {
-	while(BreakIndex && BreakInfo[BreakIndex-1].level > StatementLevel)
+	while(BreakIndex && BreakInfo[BreakIndex-1].level > pa_CurrentDepth)
 	{
-		PC_WriteInt(pc_Address, BreakInfo[--BreakIndex].addressPtr);
+		PC_WriteInt(pCode_Current, BreakInfo[--BreakIndex].address);
 	}
 }
 
@@ -3045,8 +3035,8 @@ static void PushContinue()
 	{
 		ERR_Exit(ERR_CONTINUE_OVERFLOW, true);
 	}
-	ContinueInfo[ContinueIndex].level = StatementLevel;
-	ContinueInfo[ContinueIndex].addressPtr = pc_Address;
+	ContinueInfo[ContinueIndex].level = pa_CurrentDepth;
+	ContinueInfo[ContinueIndex].address = pCode_Current;
 	ContinueIndex++;
 }
 
@@ -3062,9 +3052,9 @@ static void WriteContinues(int address)
 	{
 		return;
 	}
-	while(ContinueInfo[ContinueIndex-1].level > StatementLevel)
+	while(ContinueInfo[ContinueIndex-1].level > pa_CurrentDepth)
 	{
-		PC_WriteInt(address, ContinueInfo[--ContinueIndex].addressPtr);
+		PC_WriteInt(address, ContinueInfo[--ContinueIndex].address);
 	}
 }
 
@@ -3114,7 +3104,7 @@ static void LeadingIncDec(tokenType_t token)
 	if(sym->type == SY_MAPARRAY || sym->type == SY_WORLDARRAY
 		|| sym->type == SY_GLOBALARRAY)
 	{
-		ParseArrayIndices(sym, sym->info.array.ndim);
+		ParseArrayIndices(sym, sym->arr->dimAmt);
 	}
 	else if(tk_Token == TK_LBRACKET)
 	{
@@ -3125,7 +3115,7 @@ static void LeadingIncDec(tokenType_t token)
 		}
 	}
 	PC_AppendCmd(GetIncDecPCD(token, sym->type));
-	PC_AppendShrink(sym->info.var.index);
+	PC_AppendShrink(sym->cmd->var.index);
 	if(forSemicolonHack)
 	{
 		TK_TokenMustBe(TK_RPAREN, ERR_MISSING_RPAREN);
@@ -3156,7 +3146,7 @@ static void LeadingVarAssign(ACS_Node *sym)
 		if(sym->type == SY_MAPARRAY || sym->type == SY_WORLDARRAY
 			|| sym->type == SY_GLOBALARRAY)
 		{
-			ParseArrayIndices(sym, sym->info.array.ndim);
+			ParseArrayIndices(sym, sym->arr->dimAmt);
 		}
 		else if(tk_Token == TK_LBRACKET)
 		{
@@ -3169,13 +3159,13 @@ static void LeadingVarAssign(ACS_Node *sym)
 		if(tk_Token == TK_INC || tk_Token == TK_DEC)
 		{ // Postfix increment or decrement
 			PC_AppendCmd(GetIncDecPCD(tk_Token, sym->type));
-			if (pc_NoShrink)
+			if (pCode_NoShrink)
 			{
-				PC_AppendInt(sym->info.var.index);
+				PC_AppendInt(sym->cmd->var.index);
 			}
 			else
 			{
-				PC_AppendByte(sym->info.var.index);
+				PC_AppendByte(sym->cmd->var.index);
 			}
 			TK_NextToken();
 		}
@@ -3191,7 +3181,7 @@ static void LeadingVarAssign(ACS_Node *sym)
 			TK_NextToken();
 			EvalExpression();
 			PC_AppendCmd(GetAssignPCD(assignToken, sym->type));
-			PC_AppendShrink(sym->info.var.index);
+			PC_AppendShrink(sym->cmd->var.index);
 		}
 		if(tk_Token == TK_COMMA)
 		{
@@ -3222,7 +3212,7 @@ static void LeadingVarAssign(ACS_Node *sym)
 //
 //==========================================================================
 
-static pcd_t GetAssignPCD(tokenType_t token, int symbol)
+static pCode GetAssignPCD(tokenType_t token, int symbol)
 {
 	size_t i, j;
 	static tokenType_t tokenLookup[11] =
@@ -3237,7 +3227,7 @@ static pcd_t GetAssignPCD(tokenType_t token, int symbol)
 		SY_SCRIPTVAR, SY_MAPVAR, SY_WORLDVAR, SY_GLOBALVAR, SY_MAPARRAY,
 		SY_WORLDARRAY, SY_GLOBALARRAY
 	};
-	static pcd_t assignmentLookup[11][7] =
+	static pCode assignmentLookup[11][7] =
 	{
 		{ PCD_ASSIGNSCRIPTVAR, PCD_ASSIGNMAPVAR, PCD_ASSIGNWORLDVAR, PCD_ASSIGNGLOBALVAR, PCD_ASSIGNMAPARRAY, PCD_ASSIGNWORLDARRAY, PCD_ASSIGNGLOBALARRAY },
 		{ PCD_ADDSCRIPTVAR, PCD_ADDMAPVAR, PCD_ADDWORLDVAR, PCD_ADDGLOBALVAR, PCD_ADDMAPARRAY, PCD_ADDWORLDARRAY, PCD_ADDGLOBALARRAY },
@@ -3346,7 +3336,7 @@ static void LeadingReturn()
 		TK_NextToken();
 		if(tk_Token == TK_SEMICOLON)
 		{
-			if(InsideFunction->info.scriptFunc.hasReturnValue)
+			if(InsideFunction->cmd->scriptFunc.hasReturnValue)
 			{
 				ERR_Error(ERR_MUST_RETURN_A_VALUE, true);
 			}
@@ -3354,7 +3344,7 @@ static void LeadingReturn()
 		}
 		else
 		{
-			if(!InsideFunction->info.scriptFunc.hasReturnValue)
+			if(!InsideFunction->cmd->scriptFunc.hasReturnValue)
 			{
 				ERR_Error(ERR_MUST_NOT_RETURN_A_VALUE, true);
 			}
@@ -3505,7 +3495,7 @@ static void ExprLineSpecial()
 			TK_TokenMustBe(TK_RPAREN, ERR_MISSING_RPAREN);
 			TK_NextToken();
 			PC_AppendCmd(PCD_LSPEC5RESULT);
-			if(pc_NoShrink)
+			if(pCode_NoShrink)
 			{
 				PC_AppendInt(specialValue);
 			}
@@ -3519,7 +3509,7 @@ static void ExprLineSpecial()
 			TK_TokenMustBe(TK_RPAREN, ERR_MISSING_RPAREN);
 			TK_NextToken();
 			PC_AppendCmd(PCD_CALLFUNC);
-			if(pc_NoShrink)
+			if(pCode_NoShrink)
 			{
 				PC_AppendInt(argCount);
 				PC_AppendInt(-specialValue);
@@ -3624,7 +3614,7 @@ static void ExprFactor()
 			if(sym->type == SY_MAPARRAY || sym->type == SY_WORLDARRAY
 				|| sym->type == SY_GLOBALARRAY)
 			{
-				ParseArrayIndices(sym, sym->info.array.ndim);
+				ParseArrayIndices(sym, sym->arr->dimAmt);
 				PC_AppendCmd(PCD_DUP);
 			}
 			else if(tk_Token == TK_LBRACKET)
@@ -3636,9 +3626,9 @@ static void ExprFactor()
 				}
 			}
 			PC_AppendCmd(GetIncDecPCD(opToken, sym->type));
-			PC_AppendShrink(sym->info.var.index);
+			PC_AppendShrink(sym->cmd->var.index);
 			PC_AppendCmd(GetPushVarPCD(sym->type));
-			PC_AppendShrink(sym->info.var.index);
+			PC_AppendShrink(sym->cmd->var.index);
 		}
 		break;
 	case TK_IDENTIFIER:
@@ -3652,7 +3642,7 @@ static void ExprFactor()
 			case SY_WORLDARRAY:
 			case SY_GLOBALARRAY:
 				TK_NextToken();
-				ParseArrayIndices(sym, sym->info.array.ndim);
+				ParseArrayIndices(sym, sym->arr->dimAmt);
 				// fallthrough
 			case SY_SCRIPTVAR:
 			case SY_MAPVAR:
@@ -3678,7 +3668,7 @@ static void ExprFactor()
 					PC_AppendCmd(PCD_DUP);
 				}
 				PC_AppendCmd(GetPushVarPCD(sym->type));
-				PC_AppendShrink(sym->info.var.index);
+				PC_AppendShrink(sym->cmd->var.index);
 				if(tk_Token == TK_INC || tk_Token == TK_DEC)
 				{
 					if(sym->type == SY_MAPARRAY || sym->type == SY_WORLDARRAY
@@ -3687,19 +3677,19 @@ static void ExprFactor()
 						PC_AppendCmd(PCD_SWAP);
 					}
 					PC_AppendCmd(GetIncDecPCD(tk_Token, sym->type));
-					PC_AppendShrink(sym->info.var.index);
+					PC_AppendShrink(sym->cmd->var.index);
 					TK_NextToken();
 				}
 				break;
 			case SY_INTERNFUNC:
-				if(sym->info.internFunc.hasReturnValue == false)
+				if(sym->cmd->internFunc.hasReturnValue == false)
 				{
 					ERR_Error(ERR_EXPR_FUNC_NO_RET_VAL, true);
 				}
 				ProcessInternFunc(sym);
 				break;
 			case SY_SCRIPTFUNC:
-				if(sym->info.scriptFunc.hasReturnValue == false)
+				if(sym->cmd->scriptFunc.hasReturnValue == false)
 				{
 					ERR_Error(ERR_EXPR_FUNC_NO_RET_VAL, true);
 				}
@@ -3800,7 +3790,7 @@ static void ConstExprFactor()
 //
 //==========================================================================
 
-static void SendExprCommand(pcd_t pcd)
+static void SendExprCommand(pCode pcd)
 {
 	int operand1, operand2;
 
@@ -3930,13 +3920,13 @@ static int PopExStk()
 //
 //==========================================================================
 
-static pcd_t TokenToPCD(tokenType_t token)
+static pCode TokenToPCD(tokenType_t token)
 {
 	int i;
 	static struct
 	{
 		tokenType_t token;
-		pcd_t pcd;
+		pCode pcd;
 	}  operatorLookup[] =
 	{
 		{ TK_ORLOGICAL,		PCD_ORLOGICAL },
@@ -3976,7 +3966,7 @@ static pcd_t TokenToPCD(tokenType_t token)
 //
 //==========================================================================
 
-static pcd_t GetPushVarPCD(int symType)
+static pCode GetPushVarPCD(int symType)
 {
 	switch(symType)
 	{
@@ -4006,14 +3996,14 @@ static pcd_t GetPushVarPCD(int symType)
 //
 //==========================================================================
 
-static pcd_t GetIncDecPCD(tokenType_t token, int symbol)
+static pCode GetIncDecPCD(tokenType_t token, int symbol)
 {
 	int i;
 	static struct
 	{
 		tokenType_t token;
 		int symbol;
-		pcd_t pcd;
+		pCode pcd;
 	}  incDecLookup[] =
 	{
 		{ TK_INC, SY_SCRIPTVAR, PCD_INCSCRIPTVAR },
@@ -4071,22 +4061,22 @@ static void ParseArrayIndices(ACS_Node *sym, int requiredIndices)
 			if (!warned)
 			{
 				warned = true;
-				if(sym->info.array.ndim == requiredIndices)
+				if(sym->arr->dimAmt == requiredIndices)
 				{
 					ERR_Error(ERR_TOO_MANY_DIM_USED, true,
-						sym->name, sym->info.array.ndim);
+						sym->name, sym->arr->dimAmt);
 				}
 				else
 				{
 					ERR_Error(ERR_NOT_A_CHAR_ARRAY, true, sym->name,
-						sym->info.array.ndim, requiredIndices);
+						sym->arr->dimAmt, requiredIndices);
 				}
 			}
 		}
 		EvalExpression();
-		if(i < sym->info.array.ndim - 1 && sym->info.array.dimensions[i] > 1)
+		if(i < sym->arr->dimAmt - 1 && sym->arr->dimensions[i] > 1)
 		{
-			PC_AppendPushVal(sym->info.array.dimensions[i]);
+			PC_AppendPushVal(sym->arr->dimensions[i]);
 			PC_AppendCmd(PCD_MULTIPLY);
 		}
 		if(i > 0)
@@ -4103,12 +4093,12 @@ static void ParseArrayIndices(ACS_Node *sym, int requiredIndices)
 			sym->name, requiredIndices - i);
 	}
 	// if there were unspecified indices, multiply the offset by their sizes [JB]
-	if(requiredIndices < sym->info.array.ndim - 1)
+	if(requiredIndices < sym->arr->dimAmt - 1)
 	{
-		int i, mult = 1;
-		for(i = 0; i < sym->info.array.ndim - requiredIndices - 1; ++i)
+		int mult = 1;
+		for(int i = 0; i < sym->arr->dimAmt - requiredIndices - 1; ++i)
 		{
-			mult *= sym->info.array.dimensions[sym->info.array.ndim - 2 - i];
+			mult *= sym->cmd->array.dimensions[sym->arr->dimAmt - 2 - i];
 		}
 		if(mult > 1)
 		{
@@ -4229,11 +4219,11 @@ static void InitializeArray(ACS_Node *sym, int dims[MAX_ARRAY_DIMS], int size)
 	TK_NextTokenMustBe(TK_LBRACE, ERR_MISSING_LBRACE_ARR);
 	TK_NextToken();
 	ArrayHasStrings = false;
-	ProcessArrayLevel(1, entries, sym->info.array.ndim, dims,
-		sym->info.array.dimensions, sym->name);
+	ProcessArrayLevel(1, entries, sym->arr->dimAmt, dims,
+		sym->cmd->array.dimensions, sym->name);
 	if(ImportMode != IMPORT_Importing)
 	{
-		PC_InitArray(sym->info.array.index, entries, ArrayHasStrings);
+		PC_InitArray(sym->cmd->array.index, entries, ArrayHasStrings);
 	}
 }
 
@@ -4296,13 +4286,13 @@ static ACS_Node *SpeculateFunction(const string name, bool hasReturn)
 	ACS_Node *sym;
 	
 	MS_Message(MSG_DEBUG, "---- SpeculateFunction %s ----\n", name);
-	sym = SY_InsertGlobal(tk_String, SY_SCRIPTFUNC);
-	sym->info.scriptFunc.predefined = true;
-	sym->info.scriptFunc.hasReturnValue = hasReturn;
-	sym->info.scriptFunc.sourceLine = tk_Line;
-	sym->info.scriptFunc.sourceName = tk_SourceName;
-	sym->info.scriptFunc.argCount = -1;
-	sym->info.scriptFunc.funcNumber = 0;
+	sym = sym_InsertGlobal(tk_String, SY_SCRIPTFUNC);
+	sym->cmd->scriptFunc.predefined = true;
+	sym->cmd->scriptFunc.hasReturnValue = hasReturn;
+	sym->cmd->scriptFunc.sourceLine = tk_Line;
+	sym->cmd->scriptFunc.sourceName = tk_SourceName;
+	sym->cmd->scriptFunc.argCount = -1;
+	sym->cmd->scriptFunc.funcNumber = 0;
 	return sym;
 }
 
@@ -4326,21 +4316,21 @@ static void UnspeculateFunction(ACS_Node *sym)
 		prefunc_t *next = fillin->next;
 		if(fillin->sym == sym)
 		{
-			if(fillin->argcount != sym->info.scriptFunc.argCount)
+			if(fillin->argcount != sym->cmd->scriptFunc.argCount)
 			{
 				ERR_ErrorAt(fillin->source, fillin->line);
 				ERR_Error(ERR_FUNC_ARGUMENT_COUNT, true, sym->name,
-					sym->info.scriptFunc.argCount,
-					sym->info.scriptFunc.argCount == 1 ? "" : "s");
+					sym->cmd->scriptFunc.argCount,
+					sym->cmd->scriptFunc.argCount == 1 ? "" : "s");
 			}
 
-			if(pc_NoShrink)
+			if(pCode_NoShrink)
 			{
-				PC_WriteInt(sym->info.scriptFunc.funcNumber, fillin->address);
+				PC_WriteInt(sym->cmd->scriptFunc.funcNumber, fillin->address);
 			}
 			else
 			{
-				PC_WriteByte((byte)sym->info.scriptFunc.funcNumber, fillin->address);
+				PC_WriteByte((byte)sym->cmd->scriptFunc.funcNumber, fillin->address);
 			}
 			if(FillinFunctionsLatest == &fillin->next)
 			{
@@ -4363,7 +4353,7 @@ static void UnspeculateFunction(ACS_Node *sym)
 //
 //==========================================================================
 
-static void AddScriptFuncRef(ACS_Node *sym, int address, int argcount)
+static void AddScriptFuncRef(ACS_Node *node, int address, int argcount)
 {
 	prefunc_t *fillin = new prefunc_t;
 	fillin->next = NULL;

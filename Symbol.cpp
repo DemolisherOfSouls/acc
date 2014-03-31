@@ -183,8 +183,8 @@ static ACS_Function InternalFunctions[] =
 	{ "", PCD_NOP, PCD_NOP, 0, 0, 0, false, false }
 };
 
-// TODO: make _DEBUG only
-static char *SymbolTypeNames[] =
+#ifdef _DEBUG
+static string SymbolTypeNames[] =
 {
 	"SY_DUMMY",
 	"SY_LABEL",
@@ -201,6 +201,7 @@ static char *SymbolTypeNames[] =
 	"SY_INTERNFUNC",
 	"SY_SCRIPTFUNC"
 };
+#endif
 
 // CODE --------------------------------------------------------------------
 
@@ -224,37 +225,36 @@ void sym_Init()
 
 	//Add internal functions
 	for each (ACS_Function def in InternalFunctions)
-		acs_Nodes.add(ACS_Node(NODE_FUNCTION, def.index));
+		sym_Nodes.add(ACS_Node(NODE_FUNCTION, def.index));
 }
 
 //==========================================================================
 //
-// SY_Find
+// sym_Find
 //
 //==========================================================================
-ACS_Node *SY_Find(string name)
+ACS_Node *sym_Find(string name)
 {
-	ACS_Node *node;
+	ACS_Node * node = sym_FindLocal(name);
 
 	//[JRT] Shouldn't it check local first?
-	if ((node = SY_FindLocal(name)) == NULL)
-	{
-		return SY_FindGlobal(name);
-	}
+	if (!node)
+		return sym_FindGlobal(name);
+	
 	return node;
 }
 
 //==========================================================================
 //
-// SY_FindGlobal
+// sym_FindGlobal
 //
 //==========================================================================
-ACS_Node *SY_FindGlobal(string name)
+ACS_Node *sym_FindGlobal(string name)
 {
-	ACS_Node *node = Find(name, 0);
+	ACS_Node *node = Find(name, pa_FileDepth);
 	if(node)
 	{
-		MS_Message(MSG_DEBUG, "Symbol %s marked as used.\n", name);
+		MS_Message(MSG_DEBUG, "Symbol " + name + " marked as used.\n");
 
 		if(node->type == NODE_FUNCTION)
 		{
@@ -279,7 +279,7 @@ ACS_Node *SY_FindGlobal(string name)
 			else
 			{
 				pa_MapVarCount++;
-				PC_NameMapVariable(node->index, node);
+				PC_NameMapVariable(node->index(), node);
 				PC_AddArray(node->index, node->arr->size);
 			}
 		}
@@ -289,12 +289,21 @@ ACS_Node *SY_FindGlobal(string name)
 
 //==========================================================================
 //
-// SY_Findlocal
+// sym_Findlocal
 //
 //==========================================================================
-ACS_Node *SY_FindLocal(string name)
+ACS_Node *sym_FindLocal(string name)
 {
-	return Find(name, pa_CurrentDepth);
+	auto *depth = &sym_Depths[pa_CurrentDepth];
+
+	while (depth->Current() != pa_FileDepth)
+	{
+		ACS_Node * node = Find(name, depth);
+
+		if (!node)	// pop depth, re-check;
+			depth = depth
+
+	}
 }
 
 //==========================================================================

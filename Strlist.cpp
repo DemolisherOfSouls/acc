@@ -17,27 +17,57 @@
 
 // TYPES -------------------------------------------------------------------
 
-struct stringInfo_t
+struct StringInfo;
+struct LanguageInfo;
+using StringList = vector<StringInfo>;
+
+struct StringInfo
 {
+	using List = StringList;
+
 	string name;
 	int index;
-};
+	List &list;
 
-struct stringList_t
-{
-	int stringCount;
-	stringInfo_t strings[MAX_STRINGS];
-
-	stringList_t()
+	string operator=(const StringInfo& rValue)
 	{
-		stringCount = 0;
+		return rValue.name;
+	}
+	StringInfo operator=(const string& rValue)
+	{
+		return StringInfo(rValue);
+	}
+
+	StringInfo(string name)
+	{
+		set(name);
+
+	}
+	StringInfo(string name, List &list)
+	{
+		set(name);
+		set(list);
+		addListItem();
+	}
+	StringInfo(string name, int index)
+	{
+		set(name);
+		set(index);
+	}
+
+protected:
+
+	void addListItem()
+	{
+		list.add((StringInfo)this);
+		index = ((StringInfo)list.lastAdded()).index = list.lastIndex();
 	}
 };
 
-struct languageInfo_t
+struct LanguageInfo
 {
 	string name;
-	stringList_t list;
+	StringList list;
 };
 
 // EXTERNAL FUNCTION PROTOTYPES --------------------------------------------
@@ -46,23 +76,20 @@ struct languageInfo_t
 
 // PRIVATE FUNCTION PROTOTYPES ---------------------------------------------
 
-static int STR_PutStringInSomeList(stringList_t *list, int index, string name);
-static int STR_FindInSomeList(stringList_t *list, string name);
-static int STR_FindInSomeListInsensitive(stringList_t *list, string name);
-static void DumpStrings(stringList_t *list, int lenadr, bool quad, bool crypt);
+static int STR_PutStringInSomeList(StringList *list, int index, string name);
+static int STR_FindInSomeList(StringList *list, string name);
+static int STR_FindInSomeListInsensitive(StringList *list, string name);
+static void DumpStrings(StringList *list, int lenadr, bool quad, bool crypt);
 static void Encrypt(void *data, int key, int len);
 
 // EXTERNAL DATA DECLARATIONS ----------------------------------------------
 
 // PUBLIC DATA DEFINITIONS -------------------------------------------------
 
-int NumLanguages = 0;
-int NumStringLists = 0;
-
 // PRIVATE DATA DEFINITIONS ------------------------------------------------
 
-static languageInfo_t *LanguageInfo[MAX_LANGUAGES];
-static stringList_t *StringLists[NUM_STRLISTS];
+static languageInfo *LanguageInfo[MAX_LANGUAGES];
+static StringList *StringLists[NUM_STRLISTS];
 
 // CODE --------------------------------------------------------------------
 
@@ -104,7 +131,7 @@ int STR_FindLanguage(string name)
 		LanguageInfo[i]->name = name;
 		LanguageInfo[i]->list.stringCount = 0;
 		NumLanguages++;
-		if (NumLanguages > 1 && pc_EnforceHexen)
+		if (NumLanguages > 1 && pCode_EnforceHexen)
 			ERR_Error(ERR_HEXEN_COMPAT, true);
 	}
 	return i;
@@ -194,18 +221,16 @@ int STR_FindInListInsensitive(int list, char *name)
 //
 //==========================================================================
 
-static int STR_FindInSomeListInsensitive(stringList_t *list, char *name)
+static int STR_FindInSomeListInsensitive(StringList &list, string name)
 {
-	int i;
-
-	for(i = 0; i < list->stringCount; i++)
-	{
-		if(strcasecmp(list->strings[i].name, name) == 0)
-		{
+	for (auto s : list)
+		if (s.compare(name) == 0)
 			return i;
-		}
-	}
-	// Add to list
+
+	for(int i = 0; i < list.size(); i++)
+		if(list[i].compare(name) == 0)
+			return i;
+	
 	return STR_PutStringInSomeList(list, i, name);
 }
 

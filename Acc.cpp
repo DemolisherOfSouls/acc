@@ -1,14 +1,12 @@
 
 //**************************************************************************
 //**
-//** acc.c
+//** acc.cpp
 //**
 //**************************************************************************
 
 // HEADER FILES ------------------------------------------------------------
 
-#include <iostream>
-#include <fstream>
 #include <cstdio>
 #include <cstdlib>
 #include "common.h"
@@ -19,11 +17,6 @@
 #include "pcode.h"
 #include "parse.h"
 #include "strlist.h"
-
-using std::fstream;
-using std::ios;
-using std::cerr;
-using std::endl;
 
 // MACROS ------------------------------------------------------------------
 
@@ -41,7 +34,7 @@ using std::endl;
 static void Init();
 static void DisplayBanner();
 static void DisplayUsage();
-static void OpenDebugFile(char *name);
+static void OpenDebugFile(string name);
 static void ProcessArgs();
 
 // EXTERNAL DATA DECLARATIONS ----------------------------------------------
@@ -51,8 +44,11 @@ static void ProcessArgs();
 bool acs_BigEndianHost;
 bool acs_VerboseMode;
 bool acs_DebugMode;
-fstream acs_DebugFile;
+ofstream acs_DebugFile;
 string acs_SourceFileName;
+string acs_ErrorFileName;		// User defined error file name
+								// TODO: Maybe add the ability to add a path?
+								// TODO: Add error checking.
 
 // PRIVATE DATA DEFINITIONS ------------------------------------------------
 
@@ -115,17 +111,17 @@ int main(int argc, char **argv)
 //==========================================================================
 static void DisplayBanner()
 {
-	cerr << "\nOriginal ACC Version 1.10 by Ben Gokey\n"
-		<< "Copyright (c) "COPYRIGHT_YEARS_TEXT" Raven Software, Corp.\n\n"
-		<< "This is version "VERSION_TEXT" ("__DATE__")\n"
-		<< "This software is not supported by Raven Software or Activision\n"
-		<< "ZDoom changes and language extensions by Randy Heit\n"
-		<< "Further changes by Brad Carney\n"
-		<< "Even more changes by James Bentler\n"
-		<< "Some additions by Michael \"Necromage\" Weber\n"
-		<< "Error reporting improvements and limit expansion by Ty Halderman\n"
-		<< "Include paths added by Pascal vd Heiden\n"
-		<< "Additional operators, structs, and methods added by J. Ryan \"DemolisherOfSouls\" Taylor\n";
+	line("\nOriginal ACC Version 1.10 by Ben Gokey");
+	line("Copyright (c) "COPYRIGHT_YEARS_TEXT" Raven Software, Corp.\n");
+	line("This is version "VERSION_TEXT" ("__DATE__")");
+	line("This software is not supported by Raven Software or Activision");
+	line("ZDoom changes and language extensions by Randy Heit");
+	line("Further changes by Brad Carney");
+	line("Even more changes by James Bentler");
+	line("Some additions by Michael \"Necromage\" Weber");
+	line("Error reporting improvements and limit expansion by Ty Halderman");
+	line("Include paths added by Pascal vd Heiden");
+	line("Additional operators, structs, and methods added by J. Ryan \"DemolisherOfSouls\" Taylor");
 }
 
 //==========================================================================
@@ -143,7 +139,7 @@ static void Init()
 		acs_BigEndianHost = true;
 	acs_VerboseMode = true;
 	acs_DebugMode = false;
-	acs_DebugFile = fstream();
+	acs_DebugFile = ofstream();
 	TK_Init();
 	sym_Init();
 	STR_Init();
@@ -162,24 +158,24 @@ static void Init()
 //==========================================================================
 static void ProcessArgs()
 {
-	int i = 1;
-	int count = 0;
-	char *text;
+	int count = 0, i = 1;
+	string text;
 	char option;
+	bool grabErrorFile = false;
 	
 	while(i < ArgCount)
 	{
 		text = ArgVector[i];
-		
-		if(*text == '-')
+		auto iter = text.begin();
+
+		if(*iter == '-')
 		{
-			// Option
-			text++;
-			if(*text == 0)
-			{
+			// If incorrect or ends, display usage
+			if (++iter == text.end())
 				DisplayUsage();
-			}
-			option = toupper(*text++);
+
+			// Option
+			option = *iter;
 			switch(option)
 			{
 				case 'I':
@@ -192,19 +188,25 @@ static void ProcessArgs()
 				case 'D':
 					acs_DebugMode = true;
 					acs_VerboseMode = true;
-					if(*text != 0)
+					if(iter != text.end())
 					{
 						OpenDebugFile(text);
 					}
 					break;
 					
 				case 'H':
-					pc_NoShrink = true;
-					pc_HexenCase = true;
-					pc_EnforceHexen = toupper(*text) != 'H';
-					pc_WarnNotHexen = toupper(*text) == 'H';
+					pCode_NoShrink = true;
+					pCode_HexenCase = true;
+					pCode_EnforceHexen = toupper(*iter) != 'H';
+					pCode_WarnNotHexen = toupper(*iter) == 'H';
 					break;
-					
+				case 'F':
+					grabErrorFile = true;
+					if (iter != text.end())
+					{
+						acs_ErrorFileName = text.substr(2, text.length(-2));
+					}
+					break;
 				default:
 					DisplayUsage();
 					break;
@@ -262,16 +264,17 @@ static void ProcessArgs()
 //==========================================================================
 static void DisplayUsage()
 {
-	puts("\nUsage: ACC [options] source[.acs] [object[.o]]\n");
-	puts("-i [path]  Add include path to find include files");
-	puts("-d[file]   Output debugging information");
-	puts("-h         Create pcode compatible with Hexen and old ZDooms");
-	puts("-hh        Like -h, but use of new features is only a warning");
-	puts("-e         Use single line error and warning messages");
-	puts("-w0        Ignore all warnings"); //TODO: add warnings
-	puts("-w#        Sets the desired warning level, where '#' is 1-4");
-	puts("-we        Treat all warnings as errors");
-	puts("-cs        Enforces case sensitivity"); //TODO: Add case sensitivity
+	line("\nUsage: ACC [options] source[.acs] [object[.o]]\n");
+	line("-i [path]  Add include path to find include files");
+	line("-d[file]   Output debugging information");
+	line("-h         Create pcode compatible with Hexen and old ZDooms");
+	line("-hh        Like -h, but use of new features is only a warning");
+	line("-e         Use single line error and warning messages");
+	line("-f[file]   Output error information to the specified file");
+	line("-w0        Ignore all warnings"); //TODO: add warnings
+	line("-w#        Sets the desired warning level, where '#' is 1-4");
+	line("-we        Treat all warnings as errors");
+	line("-cs        Enforces case sensitivity"); //TODO: Add case sensitivity
 	exit(1);
 }
 
@@ -280,7 +283,6 @@ static void DisplayUsage()
 // OpenDebugFile
 //
 //==========================================================================
-
 static void OpenDebugFile(string name)
 {
 	acs_DebugFile.open(name, ios::out, ios::trunc);
@@ -288,31 +290,3 @@ static void OpenDebugFile(string name)
 	if(!acs_DebugFile.is_open)
 		ERR_Exit(ERR_CANT_OPEN_DBGFILE, false, "File: \"%s\".", name);
 }
-
-//==========================================================================
-//
-// OptionExists
-//
-//==========================================================================
-
-/*
-static bool OptionExists(char *name)
-{
-	int i;
-	char *arg;
-
-	for(i = 1; i < ArgCount; i++)
-	{
-		arg = ArgVector[i];
-		if(*arg == '-')
-		{
-			arg++;
-			if(MS_StrCmp(name, arg) == 0)
-			{
-				return true;
-			}
-		}
-	}
-	return false;
-}
-*/

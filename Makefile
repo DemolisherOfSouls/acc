@@ -31,14 +31,14 @@ OBJS = \
 	token.o
 
 SRCS = \
-	acc.c		\
-	error.c		\
-	misc.c		\
-	parse.c		\
-	pcode.c		\
-	strlist.c	\
-	symbol.c	\
-	token.c		\
+	acc.cpp		\
+	error.cpp	\
+	misc.cpp	\
+	parse.cpp	\
+	pcode.cpp	\
+	strlist.cpp	\
+	symbol.cpp	\
+	token.cpp	\
 	common.h	\
 	error.h		\
 	misc.h		\
@@ -65,7 +65,7 @@ ACS = \
 $(EXENAME) : $(OBJS)
 	$(CC) $(OBJS) -o $(EXENAME) $(LDFLAGS)
 
-acc.o: acc.c \
+acc.o: acc.cpp \
 	common.h \
 	error.h \
 	misc.h \
@@ -76,20 +76,20 @@ acc.o: acc.c \
 	token.h \
 	
 
-error.o: error.c \
+error.o: error.cpp \
 	common.h \
 	error.h \
 	misc.h \
 	token.h \
 	
 
-misc.o: misc.c \
+misc.o: misc.cpp \
 	common.h \
 	error.h \
 	misc.h \
 	
 
-parse.o: parse.c \
+parse.o: parse.cpp \
 	common.h \
 	error.h \
 	misc.h \
@@ -100,7 +100,7 @@ parse.o: parse.c \
 	token.h \
 	
 
-pcode.o: pcode.c \
+pcode.o: pcode.cpp \
 	common.h \
 	error.h \
 	misc.h \
@@ -108,7 +108,7 @@ pcode.o: pcode.c \
 	strlist.h \
 	
 
-strlist.o: strlist.c \
+strlist.o: strlist.cpp \
 	common.h \
 	error.h \
 	misc.h \
@@ -116,7 +116,7 @@ strlist.o: strlist.c \
 	strlist.h \
 	
 
-symbol.o: symbol.c \
+symbol.o: symbol.cpp \
 	common.h \
 	error.h \
 	misc.h \
@@ -125,7 +125,7 @@ symbol.o: symbol.c \
 	parse.h \
 	
 
-token.o: token.c \
+token.o: token.cpp \
 	common.h \
 	error.h \
 	misc.h \

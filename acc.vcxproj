@@ -141,16 +141,6 @@
     </Bscmake>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Acc.c" />
-    <ClCompile Include="Error.c" />
-    <ClCompile Include="Misc.c" />
-    <ClCompile Include="Parse.c" />
-    <ClCompile Include="Pcode.c" />
-    <ClCompile Include="Strlist.c" />
-    <ClCompile Include="Symbol.c" />
-    <ClCompile Include="Token.c" />
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="Common.h" />
     <ClInclude Include="Error.h" />
     <ClInclude Include="Misc.h">
@@ -192,6 +182,18 @@
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</DeploymentContent>
       <FileType>Document</FileType>
     </Text>
+    <Text Include=".gitattributes">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</DeploymentContent>
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include=".gitignore">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</DeploymentContent>
+      <FileType>Document</FileType>
+    </Text>
+    <None Include="Headers\Special.acs" />
+    <None Include="Headers\Tid.acs" />
     <None Include="Headers\zcommon.acs" />
     <None Include="Headers\zdefs.acs" />
     <None Include="Headers\zprops.acs" />
@@ -203,6 +205,10 @@
       <FileType>Makefile</FileType>
       <DeploymentContent>false</DeploymentContent>
     </None>
+    <Text Include="readme.txt">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</DeploymentContent>
+    </Text>
   </ItemGroup>
   <ItemGroup>
     <Image Include="Icons\ACC.png">
@@ -215,6 +221,16 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Main.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Acc.cpp" />
+    <ClCompile Include="Error.cpp" />
+    <ClCompile Include="Misc.cpp" />
+    <ClCompile Include="Parse.cpp" />
+    <ClCompile Include="Pcode.cpp" />
+    <ClCompile Include="Strlist.cpp" />
+    <ClCompile Include="Symbol.cpp" />
+    <ClCompile Include="Token.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

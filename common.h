@@ -13,9 +13,21 @@
 
 // HEADER FILES ------------------------------------------------------------
 
+#include <iostream>
+#include <fstream>
 #include <string>
 #include <vector>
 #include <algorithm>
+
+using std::move;		// Move constructors
+using std::cerr;		// Console output
+using std::ofstream;	// File writing
+using std::ifstream;	// File reading
+using std::ostream;		// Logging
+using std::ios;			// File flags
+using std::endl;		// Endline
+using std::filebuf;		// Buffer for file writing
+using std::to_string;	// Convert integer to string
 
 // MACROS ------------------------------------------------------------------
 
@@ -69,8 +81,13 @@
 
 // TYPES -------------------------------------------------------------------
 
+class string;
+template<class type> class vector;
+
 //Just for looks, honestly
 using byte = unsigned char;
+using storage = vector<int>;
+using StringList = vector<string>;
 
 enum ImportModes : int
 {
@@ -79,7 +96,7 @@ enum ImportModes : int
 	IMPORT_Exporting
 };
 
-enum : int
+enum StringListType : int
 {
 	STRLIST_PICS,
 	STRLIST_FUNCTIONS,
@@ -108,6 +125,8 @@ public:
 	string(char* c)			: std::string(c) {}
 	string(const string& s)	: std::string(s) {}
 	string(char c, int n)	: std::string(n, c) {}
+	string(int i)			: std::string(to_string(i)) {}
+	string(byte y)			: std::string(to_string(y)) {}
 
 	int length(int padding)
 	{
@@ -133,25 +152,28 @@ public:
 	}
 };
 
-//[JRT] Slightly modified std::vector
-// Added input operator <<
-// Added last_index property
-// Added nextIndex method
+//==========================================================================
+//
+// vector
+//
+// std::vector with a few additions
+//
+//==========================================================================
 template <class type> //Vector data type
 class vector : public std::vector<type>
 {
 protected:
 	int last_index;
 
-	using move_reference = type&&;
-	using reference = type&;
-	using pointer = type*;
-	using const_reference = const reference;
-	using const_pointer = const pointer;
-	using size_type = int;
-	using value_type = type;
+	using move_reference		= type&&;
+	using reference				= type&;
+	using pointer				= type*;
+	using const_reference		= const type&;
+	using const_pointer			= const type*;
+	using size_type				= int;
+	using value_type			= type;
 
-	void setLast(int value = size() - 1)
+	void setLast(int value = (size() - 1))
 	{
 		last_index = value;
 	}
@@ -185,11 +207,11 @@ public:
 	//vector(const_reference rItem) : std::vector(rItem) {}
 	//vector(type rItem) : std::vector(rItem) {}
 
-	void operator<< (move_reference rItem)
+	vector& operator<< (move_reference rItem)
 	{
 		add(rItem);
 	}
-	void operator<< (const_reference rItem)
+	vector& operator<< (const_reference rItem)
 	{
 		add(rItem);
 	}
@@ -215,7 +237,7 @@ public:
 
 	void add(move_reference item)
 	{
-		push_back(item);
+		push_back(move(item));
 		setLast();
 	}
 	void add(const_reference item)
@@ -255,5 +277,21 @@ public:
 };
 
 // PUBLIC FUNCTION PROTOTYPES ----------------------------------------------
+
+//==========================================================================
+//
+// line
+//
+// Write a single line to the console, and add a newline character
+//
+//==========================================================================
+inline void line(string text)
+{
+	cerr << text << endl;
+}
+inline void line()
+{
+	cerr << endl;
+}
 
 // PUBLIC DATA DECLARATIONS ------------------------------------------------

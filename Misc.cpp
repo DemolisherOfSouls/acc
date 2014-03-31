@@ -1,7 +1,6 @@
-
 //**************************************************************************
 //**
-//** misc.c
+//** misc.cpp
 //**
 //**************************************************************************
 
@@ -19,14 +18,9 @@
 #ifdef _WIN32
 #include <sys/stat.h>
 #endif
-#include <iostream>
-#include <fstream>
 #include "common.h"
 #include "misc.h"
 #include "error.h"
-
-using std::fstream;
-using std::ios;
 
 // MACROS ------------------------------------------------------------------
 
@@ -43,7 +37,7 @@ using std::ios;
 extern bool acs_BigEndianHost;
 extern bool acs_VerboseMode;
 extern bool acs_DebugMode;
-extern fstream acs_DebugFile;
+extern ofstream acs_DebugFile;
 
 // PUBLIC DATA DEFINITIONS -------------------------------------------------
 
@@ -92,7 +86,7 @@ void MS_LoadFile(const string & name, vector<char>& DataReference)
 	if (name.length() >= MAX_FILE_NAME_LENGTH)
 		ERR_Exit(ERR_FILE_NAME_TOO_LONG, false, name);
 
-	fstream file = fstream(name, ios::binary | ios::in);
+	ifstream file = ifstream(name, ios::binary | ios::in);
 
 	if (!file.is_open())
 		ERR_Exit(ERR_CANT_OPEN_FILE, false, name);
@@ -132,7 +126,7 @@ bool MS_FileExists(const string & name)
 //==========================================================================
 bool MS_SaveFile(const string &name, vector<char>& DataReference)
 {
-	fstream file = fstream(name, ios::binary | ios::out | ios::trunc);
+	ofstream file = ofstream(name, ios::binary | ios::out | ios::trunc);
 	
 	if (!file.is_open())
 		return false;
@@ -219,6 +213,48 @@ bool MS_StripFilename(string &name)
 
 //==========================================================================
 //
+// Message_X [JRT]
+//
+// Cleaner than MS_Message
+//
+//==========================================================================
+
+void Message(MessageType msg, const string& text)
+{
+	switch (msg)
+	{
+	case MSG_DEBUG:
+		Message_Debug(text);
+		break;
+	case MSG_VERBOSE:
+		Message_Verbose(text);
+		break;
+	default:
+		line(text);
+		break;
+	}
+}
+
+void Message_Debug(const string& text)
+{
+	if (acs_DebugMode)
+	{
+		if (acs_DebugFile.is_open())
+			acs_DebugFile << text << endl;
+
+		else
+			line(text);
+	}
+}
+
+void Message_Verbose(const string& text)
+{
+	if (acs_VerboseMode)
+		line(text);
+}
+
+//==========================================================================
+//
 // MS_Message [JRT]
 //
 // This mess is priceless. I'm so proud :,)
@@ -228,7 +264,7 @@ bool MS_StripFilename(string &name)
 #define MS_MSG_WRITE(msg,data) { if (msg == MSG_DEBUG && acs_DebugFile.is_open) { acs_DebugFile << data; } else { std::cout << data; } }
 #define MS_MSG_CLOSE(msg) { if(msg == MSG_DEBUG && acs_DebugFile.is_open) { acs_DebugFile << std::endl; acs_DebugFile.flush(); acs_DebugFile.close(); } else { std::cout << std::endl; } }
 
-void MS_Message(msg_t msg, const string text)
+void MS_Message(MessageType msg, const string text)
 {
 	MS_MSG_INIT(msg);
 	MS_MSG_WRITE(msg, text);
@@ -236,7 +272,7 @@ void MS_Message(msg_t msg, const string text)
 }
 
 template <class type>
-void MS_Message(msg_t msg, const string text, const type info)
+void MS_Message(MessageType msg, const string text, const type info)
 {
 	MS_MSG_INIT(msg);
 	MS_MSG_WRITE(msg, text);
@@ -245,7 +281,7 @@ void MS_Message(msg_t msg, const string text, const type info)
 }
 
 template <class type, class type2>
-void MS_Message(msg_t msg, const string text, const type info, const type2 info2)
+void MS_Message(MessageType msg, const string text, const type info, const type2 info2)
 {
 	MS_MSG_INIT(msg);
 	MS_MSG_WRITE(msg, text);
@@ -255,7 +291,7 @@ void MS_Message(msg_t msg, const string text, const type info, const type2 info2
 }
 
 template <class type, class type2, class type3>
-void MS_Message(msg_t msg, const string text, const type info, const type2 info2, const type3 info3)
+void MS_Message(MessageType msg, const string text, const type info, const type2 info2, const type3 info3)
 {
 	MS_MSG_INIT(msg);
 	MS_MSG_WRITE(msg, text);
@@ -266,7 +302,7 @@ void MS_Message(msg_t msg, const string text, const type info, const type2 info2
 }
 
 template <class type, class type2, class type3, class type4>
-void MS_Message(msg_t msg, const string text, const type info, const type2 info2, const type3 info3, const type4 info4)
+void MS_Message(MessageType msg, const string text, const type info, const type2 info2, const type3 info3, const type4 info4)
 {
 	MS_MSG_INIT(msg);
 	MS_MSG_WRITE(msg, text);

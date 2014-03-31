@@ -1,73 +1,50 @@
-
 //**************************************************************************
 //**
-//** error.c
+//** error.cpp
 //**
 //**************************************************************************
 
 // HEADER FILES ------------------------------------------------------------
 
-#include <iostream>
-#include <fstream>
 #include <cstdio>
 #include "common.h"
 #include "error.h"
 #include "token.h"
 #include "misc.h"
 
-using std::fstream;
-using std::ios;
-using std::cerr;
-using std::endl;
-using std::streambuf;
-using std::to_string;
-
 // MACROS ------------------------------------------------------------------
 
-#define ERROR_FILE_NAME "acs.err"
+#define MAX_ERRORS	100
 
 // TYPES -------------------------------------------------------------------
 
-class estream : public fstream
+class Logger
 {
-	using fstream::operator<<;
-	
-
 public:
-	
-	estream(string file, int openmode = 3, int prot = 64) : fstream(file.c_str(), openmode, prot) {} ;
 
-	streambuf *log = cerr.rdbuf();
+	filebuf		*file;
 
-	estream& operator << (string s)
+	ostream		&console = cerr;
+	ofstream	*outfile;
+
+	Logger()
 	{
-		log->sputn(s.c_str(), s.length());
-		rdbuf()->sputn(s.c_str(), s.length());
+		*outfile = ofstream(ErrorFileName(), ios::trunc | ios::out);
+		file = outfile->rdbuf();
 	}
-	estream& operator << (const char * c)
+
+	template<class type>
+	logger& operator << (type data)
 	{
-		log->sputn(c, string(c).length());
-		rdbuf()->sputn(c, string(c).length());
-	}
-	estream& operator << (int i)
-	{
-		operator<<(to_string(i));
-	}
-	estream& operator << (bool b)
-	{
-		operator<<(to_string(b));
-	}
-	estream& operator << (char c)
-	{
-		log->sputc(c);
-		rdbuf()->sputc(c);
+		console << data;
+		outfile << data;
 	}
 };
 
-enum errorInfo_e : int
+enum ErrorType : int
 {
-	ERRINFO_GCC,
-	ERRINFO_VCC
+	ET_OLD,
+	ET_NEW
 };
 
 // EXTERNAL FUNCTION PROTOTYPES --------------------------------------------
@@ -81,17 +58,18 @@ static string ErrorFileName();
 
 // EXTERNAL DATA DECLARATIONS ----------------------------------------------
 
-extern char acs_SourceFileName[MAX_FILE_NAME_LENGTH];
+extern string acs_SourceFileName;
+extern string acs_ErrorFileName;
 
 // PUBLIC DATA DEFINITIONS -------------------------------------------------
 
 // PRIVATE DATA DEFINITIONS ------------------------------------------------
 
-static struct errorName_t
+static struct ErrorName
 {
-	error_t number;
+	ErrorNumber number;
 	string name;
-} ErrorNames[] =
+} ErrorNames[]
 {
 	{ ERR_MISSING_SEMICOLON, "Missing semicolon." },
 	{ ERR_MISSING_LPAREN, "Missing '('." },
@@ -231,9 +209,9 @@ static struct errorName_t
 	{ ERR_NONE, "" }
 };
 
-static estream ErrorFile;
+static Logger ErrorLogger;
 static int ErrorCount = 0;
-static errorInfo_e ErrorFormat;
+static ErrorType ErrorFormat = ET_OLD;
 static string ErrorSourceName;
 static int ErrorSourceLine;
 
@@ -255,12 +233,100 @@ void ERR_ErrorAt(string source, int line)
 // ERR_Error
 //
 //==========================================================================
-void ERR_Error(int error, bool info, ...)
+void ERR_Error(ErrorNumber error, bool info, ...)
 {
 	va_list args;
 	va_start(args, info);
 	ERR_ErrorV(error, info, args);
 	va_end(args);
+}
+void ERR_Error(ErrorNumber error, bool showDetails, vector<string> *list = NULL)
+{
+	// No error, no problem
+	if (error == ERR_NONE)
+		return;
+
+	bool showLine = false;
+	static bool showedInfo = false;
+
+	string display = ErrorText(error);
+	int index = 0;
+
+	// Only send this line to the console
+	if (ErrorCount == 0)
+	{
+		line();
+		line("**** ERROR ****");
+	}
+	// Only display MAX_ERRORS
+	else if (ErrorCount >= MAX_ERRORS)
+	{
+		ErrorLogger << "More than " << MAX_ERRORS << " errors. Can't continue." << endl;
+		ERR_Finish();
+	}
+
+	// Bump error count
+	ErrorCount++;
+
+	// Fill in the error details
+	if (list != NULL)
+	{
+		for (auto s : *list)
+		{
+			index = display.find_first_of('%', index);
+
+			if (index >= s.length() || index < 0 || index == string::npos)
+				// Too many variables passed, break.
+				break;
+
+			display.replace(index, 2, "");
+			display.insert(index, s);
+		}
+	}
+
+	// If we want line info and possibly a pointer to the issue
+	if (showDetails)
+	{
+		string source;
+		int line;
+
+		if (!ErrorSourceName.empty())
+		{
+			source = ErrorSourceName;
+			line = ErrorSourceLine;
+			ErrorSourceName.clear();
+		}
+		else
+		{
+			source = tk_SourceName;
+			line = tk_Line;
+			showLine = true;
+		}
+		if (!showedInfo)
+		{ // Output info compatible with older ACCs
+			// for editors that expect it.
+			showedInfo = true;
+			ErrorLogger << "Line " << line << " in file \"" << source << "\" ..." << endl;
+		}
+		else if (ErrorFormat == ET_NEW)
+			ErrorLogger << source << ":" << line << ": ";
+		
+		else
+			ErrorLogger << source << "(" << line << ") : error " << error << ": ";
+	}
+	
+	// Display error message
+	ErrorLogger << display << endl;
+
+	// Display position in line if applicable
+	if (showLine)
+	{
+		// deal with master source line and position indicator - Ty 07jan2000
+		MasterSourceLine = MasterSourceLine.substr(0, MasterSourcePos); // pre-incremented already
+
+		ErrorLogger << "> " << MasterSourceLine << endl;
+		ErrorLogger << ">" << string(' ', MasterSourcePos - 1) << "^" << endl;
+	}
 }
 
 //==========================================================================
@@ -284,87 +350,14 @@ void ERR_Exit(int error, bool info, ...)
 //==========================================================================
 void ERR_Finish()
 {
-	if (ErrorFile.is_open())
+	if (ErrorLogger.outfile->is_open())
 	{
-		ErrorFile.flush();
-		ErrorFile.close();
+		ErrorLogger.outfile->flush();
+		ErrorLogger.outfile->close();
 	}
 	
 	if(ErrorCount)
 		exit(1);
-}
-
-//==========================================================================
-//
-// ShowError
-//
-//==========================================================================
-void ERR_ErrorV(int error, bool info, va_list args)
-{
-	ErrorFile = estream(ErrorFileName(), ios::out | ios::trunc);
-	bool showLine = false;
-	static bool showedInfo = false;
-
-	if(!ErrorFile.is_open())
-		ErrorFile.open(ErrorFileName(), ios::out| ios::trunc);
-	
-	if (ErrorCount == 0)
-		cerr << endl << "**** ERROR ****" << endl;
-	
-	else if(ErrorCount >= 100)
-	{
-		ErrorFile << "More than 100 errors. Can't continue.\n";
-		ERR_Finish();
-	}
-	ErrorCount++;
-	if(info)
-	{
-		string source;
-		int line;
-
-		if(!ErrorSourceName.empty())
-		{
-			source = ErrorSourceName;
-			line = ErrorSourceLine;
-			ErrorSourceName.clear();
-		}
-		else
-		{
-			source = tk_SourceName;
-			line = tk_Line;
-			showLine = true;
-		}
-		if(!showedInfo)
-        { // Output info compatible with older ACCs
-          // for editors that expect it.
-			showedInfo = true;
-			ErrorFile << "Line " << line << " in file \"" << source << "\" ...\n";
-		}
-		if(ErrorFormat == ERRINFO_GCC)
-		{
-			ErrorFile << source << ":" << line << ": ";
-		}
-		else
-		{
-			ErrorFile << source << "(" << line << ") : ";
-			if(error != ERR_NONE)
-			{
-				ErrorFile << "error " << error << ": ";
-			}
-		}
-	}
-	if(error != ERR_NONE)
-	{
-		ErrorFile << ErrorText(error) << args << '\n';
-		if(showLine)
-		{
-			// deal with master source line and position indicator - Ty 07jan2000
-			MasterSourceLine = MasterSourceLine.substr(0, MasterSourcePos); // pre-incremented already
-
-			ErrorFile << "> " << MasterSourceLine << '\n';
-			ErrorFile << ">" << string(' ', MasterSourcePos - 1) << "^" << '\n';
-		}
-	}
 }
 
 //==========================================================================
@@ -379,34 +372,24 @@ void ERR_RemoveErrorFile()
 
 //==========================================================================
 //
-// ERR_VerifyUserErrorFile
-//
-//==========================================================================
-void ERR_VerifyUserErrorFile()
-{
-	string& file = UserErrorFileName;
-
-	if (file.empty())
-		file = ERROR_FILE_NAME;
-	else
-		MS_SuggestFileExt(file, ".err");
-}
-
-//==========================================================================
-//
 // ErrorFileName
 //
 //==========================================================================
 static string ErrorFileName()
 {
-	string errFileName;
+	string& file = acs_ErrorFileName;
 
-	errFileName = acs_SourceFileName;
+	if (file.empty())
+		file = "acs.err";
+	else
+		MS_SuggestFileExt(file, ".err");
+
+	string errFileName = acs_SourceFileName;
 
 	if(!MS_StripFilename(errFileName))
-		errFileName = ERROR_FILE_NAME;
+		errFileName = acs_ErrorFileName;
 	else
-		errFileName += ERROR_FILE_NAME;
+		errFileName += acs_ErrorFileName;
 
 	return errFileName;
 }
@@ -427,9 +410,9 @@ void ERR_BadAlloc()
 // ErrorText
 //
 //==========================================================================
-static string ErrorText(int error)
+static string ErrorText(ErrorNumber error)
 {
-	for each (errorName_t err in ErrorNames)
+	for (ErrorName err : ErrorNames)
 		if (error == err.number)
 			return err.name;
 	return "";

@@ -1,4 +1,3 @@
-
 //**************************************************************************
 //**
 //** pcode.h
@@ -13,47 +12,47 @@
 
 // MACROS ------------------------------------------------------------------
 
-// Values to indicate a script's type
-enum : int
-{
-	OPEN_SCRIPTS_BASE			= 1,
-	RESPAWN_SCRIPTS_BASE,		// [BC]
-	DEATH_SCRIPTS_BASE,			// [BC]
-	ENTER_SCRIPTS_BASE,			// [BC]
-	PICKUP_SCRIPTS_BASE,		// [BC]
-	BLUE_RETURN_SCRIPTS_BASE,	// [BC]
-	RED_RETURN_SCRIPTS_BASE,	// [BC]
-	WHITE_RETURN_SCRIPTS_BASE,	// [BC]
-	LIGHTNING_SCRIPTS_BASE		= 12,
-	UNLOADING_SCRIPTS_BASE,
-	DISCONNECT_SCRIPTS_BASE,
-	RETURN_SCRIPTS_BASE,
-};
+// TYPES -------------------------------------------------------------------
 
 // Values to indicate script flags (requires new-style .o)
-enum : int
+enum ScriptFlag : unsigned int
 {
-	NET_SCRIPT_FLAG			= 0x0001,
-	CLIENTSIDE_SCRIPT_FLAG	= 0x0002, // [BB]
+	NET_SCRIPT_FLAG = 0x0001,
+	CLIENTSIDE_SCRIPT_FLAG = 0x0002, // [BB]
 };
 
 // Or'ed with variable index when passing variables of type "out"
 // An idea that was never realized.
-enum : unsigned int
+enum VariableFlag : unsigned long
 {
-	OUTVAR_SCRIPT_SPEC		= 0x40000000,
-	OUTVAR_MAP_SPEC			= 0x80000000,
-	OUTVAR_WORLD_SPEC		= 0xc0000000,
-	OUTVAR_GLOBAL_SPEC		= 0x00000000
+	OUTVAR_SCRIPT_SPEC = 0x40000000,
+	OUTVAR_MAP_SPEC = 0x80000000,
+	OUTVAR_WORLD_SPEC = 0xc0000000,
+	OUTVAR_GLOBAL_SPEC = 0x00000000
 };
 
-// TYPES -------------------------------------------------------------------
-
-struct symbolNode_t;	// Defined in symbol.h
-
-enum pcd_t : int
+// Values to indicate a script's activation
+enum ScriptActivation : int
 {
-	PCD_NOP = 0,
+	ST_CLOSED,
+	ST_OPEN,
+	ST_RESPAWN,		// [BC]
+	ST_DEATH,		// [BC]
+	ST_ENTER,		// [BC]
+	ST_PICKUP,		// [BC]
+	ST_BLUE_RETURN,	// [BC]
+	ST_RED_RETURN,	// [BC]
+	ST_WHITE_RETURN,// [BC]
+	ST_LIGHTNING = 12,
+	ST_UNLOADING,
+	ST_DISCONNECT,
+	ST_RETURN,
+	ST_COUNT
+};
+
+enum pCode : int
+{
+	PCD_NOP,
 	PCD_TERMINATE,
 	PCD_SUSPEND,
 	PCD_PUSHNUMBER,
@@ -442,29 +441,32 @@ void PC_AppendShrink(byte val);
 void PC_Write(byte *buffer, int size, int address);
 void PC_WriteByte(byte val, int address);
 void PC_WriteInt(int val, int address);
-void PC_WriteString(char *string, int address);
+void PC_WriteString(string str, int address);
 void PC_WriteCmd(int command, int address);
 void PC_Skip(int size);
 void PC_SkipInt();
 void PC_AddScript(int number, int type, int flags, int argCount);
 void PC_SetScriptVarCount(int number, int type, int varCount);
-void PC_AddFunction(struct symbolNode_t *sym);
+void PC_AddFunction(ACS_Node *node);
 void PC_PutMapVariable(int index, int value);
-void PC_NameMapVariable(int index, struct symbolNode_t *sym);
+void PC_NameMapVariable(int index, ACS_Node *node);
 void PC_AddArray(int index, int size);
-void PC_InitArray(int index, int *entries, bool hasStrings);
+void PC_InitArray(int index, vector<int> items, bool hasStrings);
 int  PC_AddImport(string name);
 
 // PUBLIC DATA DECLARATIONS ------------------------------------------------
 
-extern vector<byte>	pCode_Buffer;		// Vector containing the written pCodes
-extern int			pCode_ScriptCount;	// Current script count
-extern int			pCode_FunctionCount;// Current function count
-extern int			pCode_StructCount;	// Current struct count
-extern bool pc_NoShrink;
-extern bool pc_HexenCase;
-extern bool pc_EnforceHexen;
-extern bool pc_WarnNotHexen;
-extern bool pc_WadAuthor;
-extern bool pc_EncryptStrings;
-
+int				pCode_LastAppendedCommand;	// Last command written to the buffer
+int				pCode_TemporaryStorage;		// ? TODO: Remove?
+int				pCode_current;				// current position in buffer?
+storage			pCode_Buffer;				// int vector, stores pCodes and data
+storage			pCode_ByteSizes;			// int vector, stores byte size of each value in buffer, for shrinking
+int				pCode_ScriptCount;			// Current script count
+int				pCode_FunctionCount;		// Current function count
+int				pCode_StructCount;			// Current struct count
+bool			pCode_NoShrink;				// Use 32 bit (int) values when compiling (Normally writes 8 bit (byte) values when possible)
+bool			pCode_HexenCase;			// ?
+bool			pCode_EnforceHexen;			// Error if the user utilizes items beyond the hexen spec
+bool			pCode_WarnNotHexen;			// ?
+bool			pCode_WadAuthor = true;		// Make WadAuthor compatible scripts
+bool			pCode_EncryptStrings;		// Prevent strings from being visible in the compiled file
