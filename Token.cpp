@@ -14,7 +14,7 @@
 #ifdef __NeXT__
 #include <libc.h>
 #else
-#ifndef unix
+#ifdef unix
 #include <io.h>
 #endif
 #include <limits.h>
@@ -38,7 +38,7 @@
 
 // TYPES -------------------------------------------------------------------
 
-enum chr_t : char
+enum CharType : char
 {
 	CHR_EOF,
 	CHR_LETTER,
@@ -83,7 +83,7 @@ static bool CheckForConstant();
 static void NextChr();
 static void SkipComment();
 static void BumpMasterSourceLine(char Chr, bool clear); // master line - Ty 07jan2000
-static char *AddFileName(const char *name);
+static int AddFileName(const string name);
 static int OctalChar();
 
 // EXTERNAL DATA DECLARATIONS ----------------------------------------------
@@ -117,20 +117,20 @@ static nestInfo_t OpenFiles[MAX_NESTED_SOURCES];
 static bool AlreadyGot;
 static int NestDepth;
 static bool IncLineNumber;
-static vector<string> FileNames;
+static VecStr FileNames;
 static size_t FileNamesLen;
 
 // Pascal 12/11/08
 // Include paths. Lowest is searched first.
 // Include path 0 is always set to the directory of the file being parsed.
-static vector<string> IncludePaths;
+static VecStr IncludePaths;
 
-struct keyword_s {
-	char* name;
+struct keyword_s
+{
+	string name;
 	tokenType_t token;
-};
-
-keyword_s Keywords[] ={
+} Keywords[]
+{
 	{ "break", TK_BREAK},
 	{ "case", TK_CASE},
 	{ "const", TK_CONST},
@@ -207,7 +207,10 @@ keyword_s Keywords[] ={
 	{ "template", TK_TEMPLATE},
 	{ "typedef", TK_TYPEDEF},
 	{ "public", TK_PUBLIC},
-	{ "private", TK_PRIVATE}
+	{ "private", TK_PRIVATE},
+	{ "protected", TK_PROTECTED},
+	{ "inline", TK_INLINE},
+	{ "operator", TK_OPERATOR }
 };
 
 #define NUM_KEYWORDS (sizeof(Keywords)/sizeof(keyword_s))
@@ -219,28 +222,33 @@ keyword_s Keywords[] ={
 // TK_Init
 //
 //==========================================================================
-
 void TK_Init() {
 	int i;
 
-	for (i = 0; i < 256; i++) {
+	for (i = 0; i < 256; i++)
+	{
 		ASCIIToChrCode[i] = CHR_SPECIAL;
 		ASCIIToHexDigit[i] = NON_HEX_DIGIT;
 	}
-	for (i = '0'; i <= '9'; i++) {
+	for (i = '0'; i <= '9'; i++)
+	{
 		ASCIIToChrCode[i] = CHR_NUMBER;
 		ASCIIToHexDigit[i] = i - '0';
 	}
-	for (i = 'A'; i <= 'F'; i++) {
+	for (i = 'A'; i <= 'F'; i++)
+	{
 		ASCIIToHexDigit[i] = 10 + (i - 'A');
 	}
-	for (i = 'a'; i <= 'f'; i++) {
+	for (i = 'a'; i <= 'f'; i++)
+	{
 		ASCIIToHexDigit[i] = 10 + (i - 'a');
 	}
-	for (i = 'A'; i <= 'Z'; i++) {
+	for (i = 'A'; i <= 'Z'; i++)
+	{
 		ASCIIToChrCode[i] = CHR_LETTER;
 	}
-	for (i = 'a'; i <= 'z'; i++) {
+	for (i = 'a'; i <= 'z'; i++)
+	{
 		ASCIIToChrCode[i] = CHR_LETTER;
 	}
 	ASCIIToChrCode[ASCII_QUOTE] = CHR_QUOTE;
@@ -249,14 +257,13 @@ void TK_Init() {
 	tk_String = TokenStringBuffer;
 	IncLineNumber = false;
 	tk_IncludedLines = 0;
-	IncludePaths = vector<string>(MAX_INCLUDE_PATHS);
+	IncludePaths = VecStr(MAX_INCLUDE_PATHS);
 	SourceOpen = false;
-	MasterSourceLine = ""; // master line - Ty 07jan2000
-	MasterSourcePos = 0; // master position - Ty 07jan2000
-	ClearMasterSourceLine = true; // clear the line to start
+	MasterSourceLine = "";			// master line - Ty 07jan2000
+	MasterSourcePos = 0;			// master position - Ty 07jan2000
+	ClearMasterSourceLine = true;	// clear the line to start
 	qsort(Keywords, NUM_KEYWORDS, sizeof (keyword_s), SortKeywords);
-	FileNames = vector<string>(MAX_INCLUDE_PATHS);
-	FileNamesLen = 0;
+	FileNames = VecStr(MAX_INCLUDE_PATHS);
 	File = vector<char>(DEFAULT_OBJECT_SIZE);
 }
 
@@ -265,10 +272,9 @@ void TK_Init() {
 // SortKeywords
 //
 //==========================================================================
-
-static int SortKeywords(const void *a, const void *b) {
-	return strcmp(((struct keyword_s *) a)->name,
-			((struct keyword_s *) b)->name);
+static int SortKeywords(const void *a, const void *b)
+{
+	return ((keyword_s *) a)->name.compare(((keyword_s *) b)->name);
 }
 
 //==========================================================================
@@ -276,8 +282,8 @@ static int SortKeywords(const void *a, const void *b) {
 // TK_OpenSource
 //
 //==========================================================================
-
-void TK_OpenSource(string fileName) {
+void TK_OpenSource(string fileName)
+{
 	TK_CloseSource();
 	MS_LoadFile(fileName, File);
 	tk_SourceName = AddFileName(fileName);
@@ -295,8 +301,8 @@ void TK_OpenSource(string fileName) {
 // AddFileName
 //
 //==========================================================================
-
-static int AddFileName(string name) {
+static int AddFileName(string name)
+{
 	FileNames.add(name);
 	return FileNames.lastIndex();
 }
@@ -309,11 +315,13 @@ static int AddFileName(string name) {
 // Pascal 12/11/08
 //
 //==========================================================================
-
-void TK_AddIncludePath(string sourcePath) {
-	if (IncludePaths.size() < MAX_INCLUDE_PATHS) {
+void TK_AddIncludePath(string sourcePath)
+{
+	if (IncludePaths.size() < MAX_INCLUDE_PATHS)
+	{
 		// Not ending with directory delimiter?
-		if (!MS_IsDirectoryDelimiter(sourcePath.back())) {
+		if (!MS_IsDirectoryDelimiter(sourcePath.back()))
+		{
 			// Add a directory delimiter to the include path
 			sourcePath.append("/");
 		}
@@ -331,13 +339,15 @@ void TK_AddIncludePath(string sourcePath) {
 // Adds an include path for the directory of the executable.
 //
 //==========================================================================
-
-void TK_AddProgramIncludePath(string progname) {
-	if (IncludePaths.size() < MAX_INCLUDE_PATHS) {
+void TK_AddProgramIncludePath(string progname)
+{
+	if (IncludePaths.size() < MAX_INCLUDE_PATHS)
+	{
 #ifdef _WIN32
 #ifdef _MSC_VER
 #if _MSC_VER >= 1300
-		if (_get_pgmptr(&progname) != 0) {
+		if (_get_pgmptr(&progname) != 0)
+		{
 			return;
 		}
 		string pn = progname;
@@ -357,10 +367,13 @@ void TK_AddProgramIncludePath(string progname) {
 		}
 #endif
 
-		if (MS_StripFilename(pn)) {
+		if (MS_StripFilename(pn))
+		{
 			IncludePaths.add(pn);
 			MS_Message(MSG_DEBUG, "Program include path is ", IncludePaths.size(), ": \"", pn, "\"");
-		} else {
+		}
+		else
+		{
 			IncludePaths.add(pn);
 		}
 
@@ -375,9 +388,9 @@ void TK_AddProgramIncludePath(string progname) {
 // Pascal 12/11/08
 //
 //==========================================================================
-
-static void SetLocalIncludePath(string sourceName) {
-	IncludePaths.prefer(0, sourceName);
+static void SetLocalIncludePath(string sourceName)
+{
+	IncludePaths.prefer(0, move(sourceName));
 
 	if (MS_StripFilename(IncludePaths.lastAdded()) == false) {
 		IncludePaths.lastAdded = "";
@@ -390,8 +403,8 @@ static void SetLocalIncludePath(string sourceName) {
 // TK_Include
 //
 //==========================================================================
-
-void TK_Include(string fileName) {
+void TK_Include(string fileName)
+{
 	string sourceName;
 	nestInfo_t *info;
 	bool foundfile = false;

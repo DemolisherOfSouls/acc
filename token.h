@@ -131,18 +131,10 @@ enum tokenType_t : int
 	TK_STRPARAM_EVAL,	// 'strparam'
 	TK_STRCPY,          // 'strcpy'
 	// [JRT] New for ACC++
-	//TK_TID,			// 'tid'
-	//TK_FIXED,			// 'fixed'
-	//TK_ACTOR,			// 'actor'
 	TK_NEW,				// 'new'
 	TK_STRUCT,			// 'struct'
 	TK_METHOD,			// 'method'
-	//TK_LOCAL,			// 'local'
-	//TK_OVERRIDES,		// 'overrides'
 	TK_CLASS,			// 'class'
-	//TK_SOUND,			// 'sound'
-	//TK_IMAGE,			// 'image'
-	//TK_MUSIC,			// 'music'
 	TK_DELETE,			// 'delete'
 	TK_QSTART,			// '?'
 	TK_TEMPLATE,		// 'template'
@@ -150,6 +142,9 @@ enum tokenType_t : int
 	TK_PUBLIC,			// 'public'
 	TK_PRIVATE,			// 'private'
 	TK_POINTERTO,		// '->'
+	TK_INLINE,			// 'inline'
+	TK_PROTECTED,		// 'protected'
+	TK_OPERATOR,		// 'operator'
 };
 
 // PUBLIC FUNCTION PROTOTYPES ----------------------------------------------

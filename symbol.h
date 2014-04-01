@@ -60,12 +60,8 @@ enum NodeType : int
 	NODE_UNKNOWN = -1,
 	NODE_FUNCTION,
 	NODE_VARIABLE,
-	NODE_ARRAY
-};
-enum DepthVal : int
-{
-	DEPTH_NONE = -1,	// Undefined
-	DEPTH_GLOBAL,		// Map level, initial file
+	NODE_ARRAY,
+	NODE_SCRIPTVAR
 };
 
 template <class type>
@@ -455,8 +451,11 @@ public:
 		case NODE_ARRAY:
 			arr = &sym_Arrays[index];
 			break;
+		case NODE_SCRIPTVAR:
+			var = &sym_LocalVariables[index];
+			break;
 		case NODE_VARIABLE:
-			var = &sym_Variables[index];
+			var = &sym_MapVariables[index];
 			break;
 		}
 	}
@@ -473,6 +472,7 @@ public:
 		case NODE_ARRAY:
 			arr = new ACS_Array(name);
 			break;
+		case NODE_SCRIPTVAR:
 		case NODE_VARIABLE:
 			var = new ACS_Var(name);
 			break;
@@ -487,7 +487,8 @@ public:
 
 	void clear()
 	{
-		//TODO: clear node
+		delete cmd, var, arr;
+		cmd = NULL;
 	}
 };
 
@@ -509,9 +510,10 @@ public:
 		if(add) addListItem(sym_Depths);
 	}
 
-	static void Init(int && parent)
+	static int Init(int && parent)
 	{
 		setListItem(move(parent));
+		return sym_Depths.lastIndex();
 	}
 
 	const ACS_DepthRoot& WidenScope()
@@ -540,8 +542,6 @@ public:
 
 class ACS_Script : public ACS_IndexedObject<ACS_Script>
 {
-protected:
-
 public:
 
 	int number = NULL;
@@ -549,7 +549,7 @@ public:
 	bool hasName = false;
 
 	int address = NULL;
-	int argCount, varCount;
+	int argCount = 0, varCount = 0;
 	int flags = NULL;
 	int srcLine = NULL;
 
@@ -558,10 +558,7 @@ public:
 	ScriptActivation type = ST_CLOSED;
 
 	// Empty Constructor
-	ACS_Script()
-	{
-		//
-	}
+	ACS_Script() {}
 	// Numbered script
 	ACS_Script(int number, int argCount, int flags, ScriptActivation type)
 	{
@@ -624,13 +621,16 @@ void sym_ClearShared();
 
 // PUBLIC DATA DECLARATIONS ------------------------------------------------
 
-ConstList	sym_Constants;	// List of all constants
-VarList		sym_Variables;	// List of all variables
-VarList		sym_Structs;	// List of all structs
-ArrayList	sym_Arrays;		// List of all arrays
-FunctList	sym_Functions;	// List of all functions
-FunctList	sym_Operators;	// List of new operators
-FunCallList sym_FuncCall;	// List of commands in a script / function / method
+ConstList	sym_Constants;			// List of all constants
+VarList		sym_MapVariables;		// List of all map variables
+VarList		sym_GlobalVariables;	// List of all global variables
+VarList		sym_WorldVariables;		// List of all world variables
+VarList		sym_LocalVariables;		// List of all local variables
+VarList		sym_Structs;			// List of all structs
+ArrayList	sym_Arrays;				// List of all arrays
+FunctList	sym_Functions;			// List of all functions
+FunctList	sym_Operators;			// List of new operators
+FunCallList sym_FuncCall;			// List of commands in a script / function / method
 
 // List of new types / structs
 // Contains within it the operators, members, constructors, and methods
@@ -642,5 +642,5 @@ NodeList	sym_Nodes;		// List of identifiers, and what they are
 ScriptList	sym_Scripts;	// List of all defined scripts
 FileList	sym_Files;		// List of loaded and referenced acs files
 
-extern int pa_CurrentDepth;	// Current statement depth
-extern int pa_FileDepth;	// Outermost level in the current file
+extern DepthVal pa_CurrentDepth;	// Current statement depth
+extern DepthVal pa_FileDepth;	// Outermost level in the current file

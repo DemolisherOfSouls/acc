@@ -28,15 +28,16 @@ void PA_Parse();
 
 // PUBLIC DATA DECLARATIONS ------------------------------------------------
 
-extern int pa_ScriptCount;
-extern ScriptType *pa_TypedScriptCounts;
-extern int pa_MapVarCount;
-extern int pa_WorldVarCount;
-extern int pa_GlobalVarCount;
-extern int pa_WorldArrayCount;
-extern int pa_GlobalArrayCount;
-extern ImportModes ImportMode;
-extern bool ExporterFlagged;
-extern bool pa_ConstExprIsString;
-extern int pa_CurrentDepth;			// Current statement depth
-extern int pa_FileDepth;			// Outermost level in the current file
+int pa_ScriptCount;
+ScriptType *pa_TypedScriptCounts;
+int pa_MapVarCount;
+int pa_WorldVarCount;
+int pa_GlobalVarCount;
+int pa_WorldArrayCount;
+int pa_GlobalArrayCount;
+ImportModes ImportMode;
+bool ExporterFlagged;
+bool pa_ConstExprIsString;
+ACS_File *currentFile;
+DepthVal pa_CurrentDepth;			// Current statement depth
+DepthVal pa_FileDepth;				// Outermost level in the current file

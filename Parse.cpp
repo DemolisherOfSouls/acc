@@ -147,20 +147,6 @@ static void SkipBraceBlock(int depth);
 
 // PUBLIC DATA DEFINITIONS -------------------------------------------------
 
-int pa_ScriptCount;
-ScriptType *pa_TypedScriptCounts;
-int pa_MapVarCount;
-int pa_WorldVarCount;
-int pa_GlobalVarCount;
-int pa_WorldArrayCount;
-int pa_GlobalArrayCount;
-ImportModes ImportMode = IMPORT_None;
-bool ExporterFlagged;
-bool pa_ConstExprIsString;
-ACS_File *currentFile;
-int pa_CurrentDepth = 0;	// Current statement depth
-int pa_FileDepth = 0;		// Outermost level in the current file
-
 // PRIVATE DATA DEFINITIONS ------------------------------------------------
 
 static auto StatementHistory = vector<StatementType>(MAX_STATEMENT_DEPTH);
@@ -365,7 +351,7 @@ void PA_Parse()
 //==========================================================================
 static void CountScript(int type)
 {
-	for (int i = 0; ScriptCounts[i].TypeName != NULL; i++)
+	for (int i = 0; !ScriptCounts[i].TypeName.empty(); i++)
 	{
 		if (ScriptCounts[i].TypeBase == type)
 		{
@@ -401,6 +387,9 @@ static void Outside()
 			TK_NextToken();
 			switch (tk_Token)
 			{
+			case TK_EOF:
+				done = true;
+				break;
 			case TK_DEFINE:
 				OuterDefine(false);
 				break;
@@ -434,7 +423,7 @@ static void Outside()
 			case TK_NOWADAUTHOR:
 				if (ImportMode != IMPORT_Importing)
 				{
-					MS_Message(MSG_DEBUG, "Will write WadAuthor-incompatible object\n");
+					Message(MSG_DEBUG, "Will write WadAuthor-incompatible object");
 					pCode_WadAuthor = false;
 				}
 				TK_SkipTo(TK_NUMBERSIGN);
@@ -444,10 +433,7 @@ static void Outside()
 				{
 					Message(MSG_DEBUG, "Strings will be encrypted");
 					pCode_EncryptStrings = true;
-					if (pCode_EnforceHexen)
-					{
-						ERR_Error(ERR_HEXEN_COMPAT, true);
-					}
+					pCode_HexenEnforcer();
 				}
 				TK_SkipTo(TK_NUMBERSIGN);
 				break;
@@ -536,16 +522,15 @@ static void Outside()
 
 static void OuterScript()
 {
-	int scriptNumber;
-	symbolNode_t *sym;
-	int scriptType, scriptFlags;
+	int scriptNumber, scriptFlags;
+	ACS_Node *node;
+	ScriptActivation scriptType;
+	string scriptName;
 
 	Message(MSG_DEBUG, "---- OuterScript ----");
-	BreakIndex = 0;
-	CaseIndex = 0;
-	pa_CurrentDepth = 0;
+	pa_CurrentDepth = DEPTH_GLOBAL;
 	ScriptVarCount = 0;
-	SY_FreeLocals();
+	sym_FreeLocals();
 	TK_NextToken();
 
 	if(ImportMode == IMPORT_Importing)
@@ -553,7 +538,7 @@ static void OuterScript()
 		// When importing, the script number is not recorded, because
 		// it might be a #define that is not included by the main .acs
 		// file, so processing it would generate a syntax error.
-		SkipBraceBlock(0);
+		SkipBraceBlock(DEPTH_GLOBAL);
 		TK_NextToken();
 		return;
 	}
@@ -573,13 +558,14 @@ static void OuterScript()
 		TK_NextToken();
 		scriptNumber = 0;
 	}
-	else if(tk_Token == TK_STRING)
+	else if (tk_Token == TK_STRING || tk_Token == TK_IDENTIFIER)
 	{ // Named scripts start counting at -1 and go down from there.
 		if(tk_String.compare("None") == 0)
 		{
-			ERR_Error(ERR_SCRIPT_NAMED_NONE, true, NULL);
+			ERR_Error(ERR_SCRIPT_NAMED_NONE, true);
 		}
 		scriptNumber = -1 - STR_FindInListInsensitive(STRLIST_NAMEDSCRIPTS, tk_String);
+		scriptName = tk_String;
 		TK_NextToken();
 	}
 	else
@@ -589,7 +575,7 @@ static void OuterScript()
 		{
 			TK_Undo();
 			ERR_Error(ERR_SCRIPT_OUT_OF_RANGE, true, NULL);
-			SkipBraceBlock(0);
+			SkipBraceBlock(DEPTH_GLOBAL);
 			TK_NextToken();
 			return;
 		}
@@ -608,11 +594,12 @@ static void OuterScript()
 	scriptFlags = 0;
 	if(tk_Token == TK_LPAREN)
 	{
-		if(TK_NextToken() == TK_VOID)
+		TK_NextToken();
+		if (tk_Token == TK_VOID)
 		{
 			TK_NextTokenMustBe(TK_RPAREN, ERR_MISSING_RPAREN);
 		}
-		else
+		else if(tk_Token != TK_RPAREN) // Shouldn't need 'void' in paren's
 		{
 			TK_Undo();
 			do
@@ -623,15 +610,14 @@ static void OuterScript()
 				{
 					ERR_Error(ERR_TOO_MANY_SCRIPT_ARGS, true);
 				}
-				if(SY_FindLocal(tk_String) != NULL)
+				if(sym_FindLocal(tk_String) != NULL)
 				{ // Redefined
 					ERR_Error(ERR_REDEFINED_IDENTIFIER, true, tk_String);
 				}
 				else if(ScriptVarCount < 4)
 				{
-					sym = SY_InsertLocal(tk_String, SY_SCRIPTVAR);
-					sym->cmd->var.index = ScriptVarCount;
-					ScriptVarCount++;
+					node = sym_InsertLocal(tk_String, NODE_SCRIPTVAR);
+					node->cmd->index = ScriptVarCount++;
 				}
 				TK_NextToken();
 			} while(tk_Token == TK_COMMA);
@@ -641,11 +627,9 @@ static void OuterScript()
 		switch(tk_Token)
 		{
 		case TK_DISCONNECT:
-			scriptType = DISCONNECT;
+			scriptType = ST_DISCONNECT;
 			if(ScriptVarCount != 1)
-			{
 				ERR_Error(ERR_DISCONNECT_NEEDS_1_ARG, true);
-			}
 			break;
 
 		case TK_OPEN:
@@ -661,7 +645,6 @@ static void OuterScript()
 		case TK_RETURN:
 			ERR_Error(ERR_UNCLOSED_WITH_ARGS, true);
 			break;
-
 		default:
 			TK_Undo();
 		}
@@ -672,51 +655,51 @@ static void OuterScript()
 	else switch (tk_Token)
 	{
 	case TK_OPEN:
-		scriptType = OPEN;
+		scriptType = ST_OPEN;
 		break;
 
 	case TK_RESPAWN:	// [BC]
-		scriptType = RESPAWN;
+		scriptType = ST_RESPAWN;
 		break;
 
 	case TK_DEATH:		// [BC]
-		scriptType = DEATH;
+		scriptType = ST_DEATH;
 		break;
 
 	case TK_ENTER:		// [BC]
-		scriptType = ENTER;
+		scriptType = ST_ENTER;
 		break;
 
 	case TK_RETURN:
-		scriptType = RETURN;
+		scriptType = ST_RETURN;
 		break;
 
 	case TK_PICKUP:		// [BC]
-		scriptType = PICKUP;
+		scriptType = ST_PICKUP;
 		break;
 
 	case TK_BLUERETURN:	// [BC]
-		scriptType = BLUE_RETURN;
+		scriptType = ST_BLUE_RETURN;
 		break;
 
 	case TK_REDRETURN:	// [BC]
-		scriptType = RED_RETURN;
+		scriptType = ST_RED_RETURN;
 		break;
 
 	case TK_WHITERETURN:	// [BC]
-		scriptType = WHITE_RETURN;
+		scriptType = ST_WHITE_RETURN;
 		break;
 
 	case TK_LIGHTNING:
-		scriptType = LIGHTNING;
+		scriptType = ST_LIGHTNING;
 		break;
 
 	case TK_UNLOADING:
-		scriptType = UNLOADING;
+		scriptType = ST_UNLOADING;
 		break;
 
 	case TK_DISCONNECT:
-		scriptType = DISCONNECT;
+		scriptType = ST_DISCONNECT;
 		ERR_Error (ERR_DISCONNECT_NEEDS_1_ARG, true);
 		break;
 
@@ -732,15 +715,18 @@ static void OuterScript()
 		scriptFlags |= NET_SCRIPT_FLAG;
 		TK_NextToken();
 	}
-	// [BB] If NET and CLIENTSIDE are specified, this construction can only parse
-	// "NET CLIENTSIDE" but not "CLIENTSIDE NET".
 	if(tk_Token == TK_CLIENTSIDE)
 	{
 		scriptFlags |= CLIENTSIDE_SCRIPT_FLAG;
 		TK_NextToken();
 	}
+	if (tk_Token == TK_NET)
+	{
+		scriptFlags |= NET_SCRIPT_FLAG;
+		TK_NextToken();
+	}
 	CountScript(scriptType);
-	PC_AddScript(scriptNumber, scriptType, scriptFlags, ScriptVarCount);
+	pCode_AddScript(scriptNumber, scriptType, scriptFlags, ScriptVarCount);
 	pCode_LastAppendedCommand = PCD_NOP;
 	if(ProcessStatement(STMT_SCRIPT) == false)
 	{
@@ -764,16 +750,14 @@ static void OuterFunction()
 {
 	enum ImportModes importing;
 	bool hasReturn;
-	symbolNode_t *sym;
+	ACS_Node *node;
 	int defLine;
 
 	Message(MSG_DEBUG, "---- OuterFunction ----");
 	importing = ImportMode;
-	BreakIndex = 0;
-	CaseIndex = 0;
 	pa_CurrentDepth = 0;
 	ScriptVarCount = 0;
-	SY_FreeLocals();
+	sym_FreeLocals();
 	TK_NextToken();
 	if(tk_Token != TK_STR && tk_Token != TK_INT &&
 		tk_Token != TK_VOID && tk_Token != TK_BOOL)
@@ -783,7 +767,7 @@ static void OuterFunction()
 	}
 	hasReturn = tk_Token != TK_VOID;
 	TK_NextTokenMustBe(TK_IDENTIFIER, ERR_INVALID_IDENTIFIER);
-	sym = SY_FindGlobal(tk_String);
+	sym = sym_FindGlobal(tk_String);
 	if(sym != NULL)
 	{
 		if(sym->type != SY_SCRIPTFUNC)
@@ -2629,17 +2613,17 @@ static void LeadingFor()
 	{
 		ERR_Error(ERR_INVALID_STATEMENT, true);
 	}
-	exprAddr = pCode_current;
+	exprAddr = pCode_Current;
 	EvalExpression();
 	TK_TokenMustBe(TK_SEMICOLON, ERR_MISSING_SEMICOLON);
 	TK_NextToken();
 	PC_AppendCmd(PCD_IFGOTO);
-	ifgotoAddr = pCode_current;
+	ifgotoAddr = pCode_Current;
 	PC_SkipInt();
 	PC_AppendCmd(PCD_GOTO);
-	gotoAddr = pCode_current;
+	gotoAddr = pCode_Current;
 	PC_SkipInt();
-	incAddr = pCode_current;
+	incAddr = pCode_Current;
 	forSemicolonHack = true;
 	if(!ProcessStatement(STMT_IF))
 	{

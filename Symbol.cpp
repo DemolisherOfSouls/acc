@@ -219,8 +219,8 @@ void sym_Init()
 	ACS_TypeDef::Init("bool");
 	ACS_TypeDef::Init("str");
 
-	//Add std depth
-	ACS_DepthRoot::Init(0);
+	//Add 'global' depth
+	ACS_DepthRoot::Init(DEPTH_GLOBAL);
 
 	//Add internal functions
 	for (ACS_Function def : InternalFunctions)
@@ -293,11 +293,11 @@ ACS_Node *sym_FindGlobal(string name)
 //==========================================================================
 ACS_Node *sym_FindLocal(string name)
 {
-	auto *depth = &sym_Depths[pa_CurrentDepth];
+	ACS_DepthRoot *depth = &sym_Depths[pa_CurrentDepth];
 
 	while (depth->Current() != pa_FileDepth)
 	{
-		ACS_Node * node = Find(name, depth);
+		ACS_Node *node = Find(name, depth);
 
 		if (!node)	// pop depth, re-check;
 			depth = depth
@@ -312,17 +312,17 @@ ACS_Node *sym_FindLocal(string name)
 //==========================================================================
 static ACS_Node *Find(string name, int depth)
 {
-	for (ACS_Node &node : acs_Nodes)
+	for (ACS_Node &node : sym_Nodes)
 	{
 		if(node.name().compare(name) == 0)
-			if(acs_Depths[node.depth].current == depth)
+			if(sym_Depths[node.depth].current == depth)
 				return &node;
 			else
 			{
-				int cur = acs_Depths[node.depth].current;
+				int cur = sym_Depths[node.depth].current;
 				while (cur != 0)
 				{
-					cur = acs_Depths[node.depth].parent;
+					cur = sym_Depths[node.depth].parent;
 					if (cur == depth)
 						return &node;
 				}
@@ -343,7 +343,7 @@ ACS_Node *SY_InsertLocal(string name, int type)
 	
 	MS_Message(MSG_DEBUG, "Inserting local identifier: %s (%s)\n", name, SymbolTypeNames[type]);
 
-	return Insert(name, type, CurrentDepthIndex);
+	return Insert(name, type, pa_CurrentDepth);
 }
 
 //==========================================================================
@@ -354,7 +354,7 @@ ACS_Node *SY_InsertLocal(string name, int type)
 ACS_Node *SY_InsertGlobal(string name, int type)
 {
 	MS_Message(MSG_DEBUG, "Inserting global identifier: %s (%s)\n", name, SymbolTypeNames[type]);
-	return Insert(name, type, 0);
+	return Insert(name, type, DEPTH_GLOBAL);
 }
 
 //==========================================================================
@@ -364,7 +364,7 @@ ACS_Node *SY_InsertGlobal(string name, int type)
 //==========================================================================
 ACS_Node *SY_InsertGlobalUnique(string name, int type)
 {
-	if(SY_FindGlobal(name))
+	if(sym_FindGlobal(name))
 	{ // Redefined
 		ERR_Exit(ERR_REDEFINED_IDENTIFIER, true, name);
 	}
@@ -378,13 +378,12 @@ ACS_Node *SY_InsertGlobalUnique(string name, int type)
 //==========================================================================
 static ACS_Node *Insert(string name, int type)
 {
-	int compare;
-	ACS_Node *node = new ACS_Node(type, name);
+	ACS_Node *node = new ACS_Node((NodeType)type, name);
 
-	node->isImported(ImportMode == IMPORT_Importing);
+	node->isImported = (ImportMode == IMPORT_Importing);
 
-	acs_Nodes.add(*node);
-	return(&acs_Nodes.lastAdded());
+	sym_Nodes.add(*node);
+	return(&sym_Nodes.lastAdded());
 }
 
 //==========================================================================
@@ -394,12 +393,10 @@ static ACS_Node *Insert(string name, int type)
 //==========================================================================
 void SY_FreeLocals()
 {
-	for (ACS_Node &node : acs_Nodes)
-	{
+	for (ACS_Node &node : sym_Nodes)
 		if(node.depth == pa_CurrentDepth)
 			FreeNodes(&node);
-		//delete node? why? It's not like an acs script is going to eat a gig of memory
-	}
+
 	Message(MSG_DEBUG, "Freeing local identifiers");
 }
 
@@ -411,7 +408,7 @@ void SY_FreeLocals()
 void SY_FreeGlobals()
 {
 	Message(MSG_DEBUG, "Freeing global identifiers");
-	for (ACS_Node &node : acs_Nodes)
+	for (ACS_Node &node : sym_Nodes)
 		FreeNodes(&node);
 }
 
@@ -438,66 +435,9 @@ void SY_FreeConstants(int depth)
 
 //==========================================================================
 //
-// DeleteNode
-//
-//==========================================================================
-/*
-static void DeleteNode(symbolNode_t *node, symbolNode_t **parent_p)
-{
-	symbolNode_t **temp;
-	char *nametemp;
-
-	if(node->left == NULL)
-	{
-		*parent_p = node->right;
-		free(node->name);
-		free(node);
-	}
-	else if(node->right == NULL)
-	{
-		*parent_p = node->left;
-		free(node->name);
-		free(node);
-	}
-	else
-	{
-		// "Randomly" pick the in-order successor or predecessor to take
-		// the place of the deleted node.
-		if(rand() & 1)
-		{
-			// predecessor
-			temp = &node->left;
-			while((*temp)->right != NULL)
-			{
-				temp = &(*temp)->right;
-			}
-		}
-		else
-		{
-			// successor
-			temp = &node->right;
-			while((*temp)->left != NULL)
-			{
-				temp = &(*temp)->left;
-			}
-		}
-		nametemp = node->name;
-		node->name = (*temp)->name;
-		(*temp)->name = nametemp;
-		node->type = (*temp)->type;
-		node->unused = (*temp)->unused;
-		node->imported = (*temp)->imported;
-		node->info = (*temp)->info;
-		DeleteNode(*temp, temp);
-	}
-}
-*/
-//==========================================================================
-//
 // SY_ClearShared
 //
 //==========================================================================
-
 void SY_ClearShared()
 {
 	Message(MSG_DEBUG, "Marking library exports as unused");
@@ -509,12 +449,9 @@ void SY_ClearShared()
 // ClearShared
 //
 //==========================================================================
-
 static void ClearShared(ACS_Node *node)
 {
-	for (ACS_Node &iter : acs_Nodes)
-	{
-		if (node->depth == iter.depth)
-			iter.clear();
-	}
+	for (ACS_Node item : sym_Nodes)
+		if (node->depth == item.depth)
+			sym_Nodes.erase(sym_Nodes.begin() + item.index);
 }

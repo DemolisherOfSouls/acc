@@ -439,9 +439,9 @@ void pCode_AppendPadding(int bytes);
 void pCode_AppendPushVal(int val);
 void pCode_AppendShrink(byte val);
 void pCode_Skip(int size);
-void PC_AddScript(int number, ScriptActivation type, ScriptFlag flags, int argCount);
-void PC_SetScriptVarCount(int number, int type, int varCount);
-void PC_AddFunction(ACS_Node *node);
+void pCode_AddScript(int number, ScriptActivation type, ScriptFlag flags, int argCount);
+void pCode_SetScriptVarCount(int number, ScriptActivation type, int varCount);
+void pCode_AddFunction(ACS_Node *node);
 void PC_PutMapVariable(int index, int value);
 void PC_NameMapVariable(int index, ACS_Node *node);
 void PC_AddArray(int index, int size);
@@ -453,8 +453,8 @@ void pCode_HexenEnforcer();
 
 int				pCode_LastAppendedCommand;	// Last command written to the buffer
 int				pCode_TemporaryStorage;		// ? TODO: Remove?
-int				pCode_current;				// current position in buffer
-int				pCode_size;					// Current size of buffer in bytes
+int				pCode_Current;				// current position in buffer
+int				pCode_Size;					// Current size of buffer in bytes
 VecInt			pCode_Buffer;				// int vector, stores pCodes and data
 VecInt			pCode_ByteSizes;			// int vector, stores byte size of each value in buffer, for shrinking
 int				pCode_ScriptCount;			// Current script count

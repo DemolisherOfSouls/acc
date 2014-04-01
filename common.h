@@ -98,6 +98,12 @@ using byte = unsigned char;
 using VecInt = vector<int>;
 using VecStr = vector<string>;
 
+enum DepthVal : int
+{
+	DEPTH_NONE = -1,	// Undefined
+	DEPTH_GLOBAL,		// Map level, initial file
+};
+
 enum ImportModes : int
 {
 	IMPORT_None,

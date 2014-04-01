@@ -166,7 +166,7 @@ int STR_Find(string name)
 //==========================================================================
 int STR_FindInLanguage(int language, string name)
 {
-	return STR_FindInSomeList (&str_LanguageList[language].list, name);
+	return STR_FindInSomeList (str_LanguageList[language].list, name);
 }
 
 //==========================================================================
@@ -270,20 +270,20 @@ int STR_AppendToList(int list, string name)
 // STR_PutStringInSomeList
 //
 //==========================================================================
-static int STR_PutStringInSomeList(StringList *list, string name)
+static int STR_PutStringInSomeList(StringList &list, string name)
 {
-	if(list->size() >= MAX_STRINGS)
+	if(list.size() >= MAX_STRINGS)
 	{
 		ERR_Error(ERR_TOO_MANY_STRINGS, true, MAX_STRINGS);
 		return INVALID_INDEX;
 	}
 
-	Message(MSG_DEBUG, "Adding string " + list->size() + string(":"));
+	Message(MSG_DEBUG, "Adding string " + list.size() + string(":"));
 	Message(MSG_DEBUG, "  \"" + name + "\"");
 
-	list->add(StringInfo(name));
-
-	return list->lastIndex();
+	list.add(StringInfo(name));
+	list.lastAdded().index = list.lastIndex();
+	return list.lastIndex();
 }
 
 //==========================================================================
@@ -309,13 +309,13 @@ void STR_WriteStrings()
 
 	for (StringInfo &item : str_LanguageList[0].list)
 	{
-		item.address = pCode_current;
+		item.address = pCode_Current;
 		pCode_Append(item.name);
 	}
 
 	// Need to align
-	if(pCode_current % 4 != 0)
-		for (int i = 0; i < 4 - (pCode_current % 4); i++)
+	if(pCode_Current % 4 != 0)
+		for (int i = 0; i < 4 - (pCode_Current % 4); i++)
 			pCode_AppendShrink(0);
 }
 
@@ -346,7 +346,7 @@ void STR_WriteChunk(int language, bool encrypt)
 
 	Message(MSG_DEBUG, "---- STR_WriteChunk " + string(language) + " ----");
 	pCode_Append(encrypt ? "STRE" : "STRL");
-	lenadr = pCode_current;
+	lenadr = pCode_Current;
 	PC_SkipInt();
 	pCode_Append(lang->name.substr(0, 4));
 	pCode_Append((int)lang->list.size());
@@ -369,13 +369,13 @@ void STR_WriteListChunk(int list, int id, bool quad)
 		MS_Message(MSG_DEBUG, "---- STR_WriteListChunk %d %c%c%c%c----\n", list,
 			id&255, (id>>8)&255, (id>>16)&255, (id>>24)&255);
 		pCode_Append(id);
-		lenadr = pCode_current;
+		lenadr = pCode_Current;
 		pCode_Skip(4);
 		pCode_Append((int)str_StringStorage[list].size());
-		if (quad && pCode_current % 8 != 0)
+		if (quad && pCode_Current % 8 != 0)
 		{ // If writing quadword indices, align the indices to an
 		  // 8-byte boundary.
-			pCode_AppendPadding(8 - pCode_current % 8);
+			pCode_AppendPadding(8 - pCode_Current % 8);
 		}
 		DumpStrings(str_StringStorage[list], lenadr, quad, false);
 	}
@@ -386,67 +386,60 @@ void STR_WriteListChunk(int list, int id, bool quad)
 // DumpStrings
 //
 //==========================================================================
-
-static void DumpStrings(stringList_t *list, int lenadr, bool quad, bool crypt)
+static void DumpStrings(StringList *list, int lenadr, bool quad, bool crypt)
 {
 	int i, ofs, startofs;
 
-	startofs = ofs = pc_Address - lenadr - 4 + list->stringCount*(quad?8:4);
+	startofs = ofs = pCode_Current - lenadr - 4 + list->size()*(quad?8:4);
 
-	for(i = 0; i < list->stringCount; i++)
+	for(StringInfo &item : *list)
 	{
-		if (list->strings[i].name != NULL)
+		if (!item.name.empty())
 		{
-			PC_AppendInt(ofs);
-			ofs += strlen(list->strings[i].name) + 1;
+			pCode_Append(ofs);
+			ofs += item.name.size() + 1;
 		}
 		else
-		{
-			PC_AppendInt(0);
-		}
+			pCode_Append(0);
+
 		if (quad)
-		{
-			PC_AppendInt(0);
-		}
+			pCode_Append(0);
 	}
 
 	ofs = startofs;
 
-	for(i = 0; i < list->stringCount; i++)
+	for (StringInfo &item : *list)
 	{
-		if(list->strings[i].name != NULL)
+		if (!item.name.empty())
 		{
-			int stringlen = strlen(list->strings[i].name) + 1;
+			int stringlen = item.name.size() + 1;
 			if(crypt)
 			{
 				int cryptkey = ofs*157135;
 
-				Encrypt(list->strings[i].name, cryptkey, stringlen);
-				PC_Append(list->strings[i].name, stringlen);
+				Encrypt(item.name, cryptkey, stringlen);
+				pCode_Append(item.name);
 				ofs += stringlen;
-				Encrypt(list->strings[i].name, cryptkey, stringlen);
+				Encrypt(item.name, cryptkey, stringlen);
 			}
 			else
 			{
-				PC_AppendString(list->strings[i].name);
+				pCode_Append(list->data()[i].name);
 			}
 		}
 	}
-	if(pc_Address%4 != 0)
-	{ // Need to align
-		int pad = 0;
-		PC_Append((void *)&pad, 4-(pc_Address%4));
-	}
-
-	PC_WriteInt(pc_Address - lenadr - 4, lenadr);
+	pCode_AppendPadding(4 - pCode_Size % 4);
 }
 
-static void Encrypt(void *data, int key, int len)
+static void Encrypt(string& data, int key, int len)
 {
 	int p = (byte)key, i;
 
+	string temp = data;
+	data.clear();
+
 	for(i = 0; i < len; ++i)
 	{
-		((byte *)data)[i] ^= (byte)(p+(i>>1));
+		data += ((byte *)temp.c_str())[i] ^= (byte)(p+(i>>1));
 	}
 }
