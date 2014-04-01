@@ -19,14 +19,19 @@
 struct StringInfo;
 struct LanguageInfo;
 using StringList = vector<StringInfo>;
+using StringTable = vector<StringList>;
+using LangList = vector<LanguageInfo>;
 
-struct StringInfo
+class StringInfo
 {
-	using List = StringList;
+	using List = vector<StringInfo>*;
 
-	string name;
-	int index;
-	List &list;
+public:
+
+	string name = "";				// The string itself
+	int index = INVALID_INDEX;		// Location in list
+	int address = NULL;				// Address when writing pCodes
+	List list = NULL;				// Link to stored list
 
 	string operator=(const StringInfo& rValue)
 	{
@@ -37,29 +42,32 @@ struct StringInfo
 		return StringInfo(rValue);
 	}
 
+	// Basic constructor
 	StringInfo(string name)
 	{
 		set(name);
-
 	}
-	StringInfo(string name, List &list)
+	// Adds itself to the list!
+	StringInfo(string name, List list)
 	{
 		set(name);
 		set(list);
 		addListItem();
 	}
-	StringInfo(string name, int index)
+	
+	//Public caller
+	void addListItem(List list)
 	{
-		set(name);
-		set(index);
+		list->add(*this);
+		index = (list->lastAdded()).index = list->lastIndex();
 	}
 
 protected:
 
 	void addListItem()
 	{
-		list.add((StringInfo)this);
-		index = ((StringInfo)list.lastAdded()).index = list.lastIndex();
+		list->add(*this);
+		index = (list->lastAdded()).index = list->lastIndex();
 	}
 };
 
@@ -67,6 +75,12 @@ struct LanguageInfo
 {
 	string name;
 	StringList list;
+
+	LanguageInfo(string name)
+	{
+		set(name);
+		list = StringList();
+	}
 };
 
 // EXTERNAL FUNCTION PROTOTYPES --------------------------------------------
@@ -75,10 +89,10 @@ struct LanguageInfo
 
 // PRIVATE FUNCTION PROTOTYPES ---------------------------------------------
 
-static int STR_PutStringInSomeList(StringList *list, int index, string name);
-static int STR_FindInSomeList(StringList *list, string name);
-static int STR_FindInSomeListInsensitive(StringList *list, string name);
-static void DumpStrings(StringList *list, int lenadr, bool quad, bool crypt);
+static int STR_PutStringInSomeList(StringList &list, string name);
+static int STR_FindInSomeList(StringList &list, string name);
+static int STR_FindInSomeListInsensitive(StringList &list, string name);
+static void DumpStrings(StringList &list, int lenadr, bool quad, bool crypt);
 static void Encrypt(void *data, int key, int len);
 
 // EXTERNAL DATA DECLARATIONS ----------------------------------------------
@@ -87,8 +101,8 @@ static void Encrypt(void *data, int key, int len);
 
 // PRIVATE DATA DEFINITIONS ------------------------------------------------
 
-static auto languageInfo = vector<LanguageInfo>(MAX_LANGUAGES);
-static auto StringLists = StringList(NUM_STRLISTS);
+static LangList str_LanguageList = LangList(MAX_LANGUAGES);
+static StringTable str_StringStorage = StringTable(NUM_STRLISTS);
 
 // CODE --------------------------------------------------------------------
 
@@ -99,7 +113,8 @@ static auto StringLists = StringList(NUM_STRLISTS);
 //==========================================================================
 void STR_Init()
 {
-	STR_FindLanguage("");	// Default language is always number 0
+	//TODO: verify that using an empty string is ok
+	str_LanguageList.add(LanguageInfo(""));	// Default language is always number 0
 }
 
 //==========================================================================
@@ -116,22 +131,20 @@ int STR_FindLanguage(string name)
 		return 0;
 
 	else
-		for each (languageInfo_t *info in LanguageInfo)
+		for (LanguageInfo &info : str_LanguageList)
 		{
-			if (info = NULL)
+			if (info.name.empty())
 				break;
-			if (name.compare(info->name) == 0)
+			if (name.compare(info.name) == 0)
 				return i;
 			i++;
 		}
-	if (i == NumLanguages)
+	if (i == str_LanguageList.size())
 	{
-		LanguageInfo[i] = new languageInfo_t(name, stringList_t());
-		LanguageInfo[i]->name = name;
-		LanguageInfo[i]->list.stringCount = 0;
-		NumLanguages++;
-		if (NumLanguages > 1 && pCode_EnforceHexen)
-			ERR_Error(ERR_HEXEN_COMPAT, true);
+		str_LanguageList.add(LanguageInfo(name));
+
+		if (str_LanguageList.size() > 1)
+			pCode_HexenEnforcer();
 	}
 	return i;
 }
@@ -153,7 +166,7 @@ int STR_Find(string name)
 //==========================================================================
 int STR_FindInLanguage(int language, string name)
 {
-	return STR_FindInSomeList (&LanguageInfo[language]->list, name);
+	return STR_FindInSomeList (&str_LanguageList[language].list, name);
 }
 
 //==========================================================================
@@ -161,19 +174,15 @@ int STR_FindInLanguage(int language, string name)
 // STR_FindInList
 //
 //==========================================================================
-int STR_FindInList(int list, string name)
+int STR_FindInList(StringListType list, string name)
 {
-	if (StringLists[list] == NULL)
+	if (str_StringStorage[list].empty())
 	{
-		StringLists[list] = new stringList_t;
-		StringLists[list]->stringCount = 0;
-		NumStringLists++;
-		if(pc_EnforceHexen)
-		{
-			ERR_Error(ERR_HEXEN_COMPAT, true);
-		}
+		//str_StringStorage[list] = StringList();
+		//NumStringLists++;
+		pCode_HexenEnforcer();
 	}
-	return STR_FindInSomeList (StringLists[list], name);
+	return STR_FindInSomeList(&str_StringStorage[list], name);
 }
 
 //==========================================================================
@@ -181,17 +190,17 @@ int STR_FindInList(int list, string name)
 // STR_FindInSomeList
 //
 //==========================================================================
-static int STR_FindInSomeList(stringList_t *list, string name)
+static int STR_FindInSomeList(StringList &list, string name)
 {
 	int i = 0;
-	for each(stringInfo_t info in list->strings)
+	for(StringInfo &info : list)
 	{
 		if(info.name.compare(name) == 0)
 			return i;
 		i++;
 	}
 	// Add to list
-	return STR_PutStringInSomeList(list, i, name);
+	return STR_PutStringInSomeList(list, name);
 }
 
 //==========================================================================
@@ -199,19 +208,14 @@ static int STR_FindInSomeList(stringList_t *list, string name)
 // STR_FindInListInsensitive
 //
 //==========================================================================
-int STR_FindInListInsensitive(int list, char *name)
+int STR_FindInListInsensitive(StringListType list, string name)
 {
-	if (StringLists[list] == NULL)
+	if (str_StringStorage[list].empty())
 	{
-		StringLists[list] = new stringList_t;
-		StringLists[list]->stringCount = 0;
-		NumStringLists++;
-		if(pc_EnforceHexen)
-		{
-			ERR_Error(ERR_HEXEN_COMPAT, true);
-		}
+		//NumStringLists++;
+		pCode_HexenEnforcer();
 	}
-	return STR_FindInSomeListInsensitive (StringLists[list], name);
+	return STR_FindInSomeListInsensitive(str_StringStorage[list], name);
 }
 
 //==========================================================================
@@ -219,18 +223,13 @@ int STR_FindInListInsensitive(int list, char *name)
 // STR_FindInSomeListInsensitive
 //
 //==========================================================================
-
 static int STR_FindInSomeListInsensitive(StringList &list, string name)
 {
-	for (auto s : list)
-		if (s.compare(name) == 0)
-			return i;
-
-	for(int i = 0; i < list.size(); i++)
-		if(list[i].compare(name) == 0)
-			return i;
+	for (auto &s : list)
+		if (s.name.compare(name) == 0)
+			return s.index;
 	
-	return STR_PutStringInSomeList(list, i, name);
+	return STR_PutStringInSomeList(list, name);
 }
 
 //==========================================================================
@@ -238,18 +237,17 @@ static int STR_FindInSomeListInsensitive(StringList &list, string name)
 // STR_GetString
 //
 //==========================================================================
-
-const string STR_GetString(int list, int index)
+string* STR_GetString(StringListType list, int index)
 {
-	if (StringLists[list] == NULL)
+	if (str_StringStorage[list].empty())
 	{
 		return NULL;
 	}
-	if (index < 0 || index >= StringLists[list]->stringCount)
+	if (index < 0 || index >= str_StringStorage[list].size())
 	{
 		return NULL;
 	}
-	return StringLists[list]->strings[index].name;
+	return &str_StringStorage[list][index].name;
 }
 
 //==========================================================================
@@ -257,20 +255,14 @@ const string STR_GetString(int list, int index)
 // STR_AppendToList
 //
 //==========================================================================
-
 int STR_AppendToList(int list, string name)
 {
-	if (StringLists[list] == NULL)
+	if (str_StringStorage[list].empty())
 	{
-		StringLists[list] = new stringList_t;
-		StringLists[list]->stringCount = 0;
-		NumStringLists++;
-		if(pc_EnforceHexen)
-		{
-			ERR_Error(ERR_HEXEN_COMPAT, true);
-		}
+		//NumStringLists++;
+		pCode_HexenEnforcer();
 	}
-	return STR_PutStringInSomeList(StringLists[list], StringLists[list]->stringCount, name);
+	return STR_PutStringInSomeList(str_StringStorage[list], name);
 }
 
 //==========================================================================
@@ -278,41 +270,30 @@ int STR_AppendToList(int list, string name)
 // STR_PutStringInSomeList
 //
 //==========================================================================
-
-static int STR_PutStringInSomeList(stringList_t *list, int index, string name)
+static int STR_PutStringInSomeList(StringList *list, string name)
 {
-	if(index >= MAX_STRINGS)
+	if(list->size() >= MAX_STRINGS)
 	{
 		ERR_Error(ERR_TOO_MANY_STRINGS, true, MAX_STRINGS);
-		return 0;
+		return INVALID_INDEX;
 	}
 
-	MS_Message(MSG_DEBUG, "Adding string %d:\n  \"%s\"\n", list->stringCount, name);
+	Message(MSG_DEBUG, "Adding string " + list->size() + string(":"));
+	Message(MSG_DEBUG, "  \"" + name + "\"");
 
-	if(index >= list->stringCount)
-	{
-		for each(stringInfo_t info in list->strings)
-			info.name = "";
-		list->stringCount = index + 1;
-	}
+	list->add(StringInfo(name));
 
-	if(!name.empty)
-		list->strings[index].name = name;
-	else
-		list->strings[index].name.clear();
-
-	return index;
+	return list->lastIndex();
 }
 
 //==========================================================================
 //
-// STR_ListSize
+// str_ListSize
 //
 //==========================================================================
-
-int STR_ListSize(int list)
+int str_ListSize(int list)
 {
-	return LanguageInfo[list]->list.stringCount;
+	return str_LanguageList[list].list.size();
 }
 
 //==========================================================================
@@ -322,20 +303,20 @@ int STR_ListSize(int list)
 // Writes all the strings to the p-code buffer.
 //
 //==========================================================================
-
 void STR_WriteStrings()
 {
 	Message(MSG_DEBUG, "---- STR_WriteStrings ----");
-	for(int i = 0; i < LanguageInfo[0]->list.stringCount; i++)
+
+	for (StringInfo &item : str_LanguageList[0].list)
 	{
-		LanguageInfo[0]->list.strings[i].address = pc_Address;
-		PC_AppendString(LanguageInfo[0]->list.strings[i].name);
+		item.address = pCode_current;
+		pCode_Append(item.name);
 	}
-	if(pc_Address%4 != 0)
-	{ // Need to align
-		int pad = 0;
-		PC_Append((void *)&pad, 4-(pc_Address%4));
-	}
+
+	// Need to align
+	if(pCode_current % 4 != 0)
+		for (int i = 0; i < 4 - (pCode_current % 4); i++)
+			pCode_AppendShrink(0);
 }
 
 //==========================================================================
@@ -343,15 +324,14 @@ void STR_WriteStrings()
 // STR_WriteList
 //
 //==========================================================================
-
 void STR_WriteList()
 {
 	Message(MSG_DEBUG, "---- STR_WriteList ----");
-	PC_AppendInt(LanguageInfo[0]->list.stringCount);
-	for(int i = 0; i < LanguageInfo[0]->list.stringCount; i++)
-	{
-		PC_AppendInt(LanguageInfo[0]->list.strings[i].address);
-	}
+
+	pCode_Append(str_ListSize(0));
+
+	for (StringInfo &info : str_LanguageList[0].list)
+		pCode_Append(info.address);
 }
 
 //==========================================================================
@@ -359,21 +339,20 @@ void STR_WriteList()
 // STR_WriteChunk
 //
 //==========================================================================
-
 void STR_WriteChunk(int language, bool encrypt)
 {
-	languageInfo_t *lang = LanguageInfo[language];
+	LanguageInfo *lang = &str_LanguageList[language];
 	int lenadr;
 
 	Message(MSG_DEBUG, "---- STR_WriteChunk " + string(language) + " ----");
-	PC_Append(encrypt ? "STRE" : "STRL", 4);
-	lenadr = pc_Address;
+	pCode_Append(encrypt ? "STRE" : "STRL");
+	lenadr = pCode_current;
 	PC_SkipInt();
-	PC_Append(&lang->name, 4);
-	PC_AppendInt(lang->list.stringCount);
-	PC_AppendInt(0);	// Used in-game for stringing lists together
+	pCode_Append(lang->name.substr(0, 4));
+	pCode_Append((int)lang->list.size());
+	pCode_Append(0);	// Used in-game for stringing lists together
 
-	DumpStrings (&lang->list, lenadr, false, encrypt);
+	DumpStrings (lang->list, lenadr, false, encrypt);
 }
 
 //==========================================================================
@@ -381,26 +360,24 @@ void STR_WriteChunk(int language, bool encrypt)
 // STR_WriteListChunk
 //
 //==========================================================================
-
 void STR_WriteListChunk(int list, int id, bool quad)
 {
 	int lenadr;
 
-	if (StringLists[list] != NULL && StringLists[list]->stringCount > 0)
+	if (!str_StringStorage[list].empty())
 	{
 		MS_Message(MSG_DEBUG, "---- STR_WriteListChunk %d %c%c%c%c----\n", list,
 			id&255, (id>>8)&255, (id>>16)&255, (id>>24)&255);
-		PC_AppendInt(id);
-		lenadr = pc_Address;
-		PC_SkipInt();
-		PC_AppendInt(StringLists[list]->stringCount);
-		if (quad && pc_Address%8 != 0)
+		pCode_Append(id);
+		lenadr = pCode_current;
+		pCode_Skip(4);
+		pCode_Append((int)str_StringStorage[list].size());
+		if (quad && pCode_current % 8 != 0)
 		{ // If writing quadword indices, align the indices to an
 		  // 8-byte boundary.
-			int pad = 0;
-			PC_Append (&pad, 4);
+			pCode_AppendPadding(8 - pCode_current % 8);
 		}
-		DumpStrings(StringLists[list], lenadr, quad, false);
+		DumpStrings(str_StringStorage[list], lenadr, quad, false);
 	}
 }
 

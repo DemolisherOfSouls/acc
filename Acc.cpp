@@ -1,4 +1,3 @@
-
 //**************************************************************************
 //**
 //** acc.cpp
@@ -9,6 +8,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+
 #include "common.h"
 #include "token.h"
 #include "error.h"
@@ -17,6 +17,8 @@
 #include "pcode.h"
 #include "parse.h"
 #include "strlist.h"
+
+using std::set_new_handler;
 
 // MACROS ------------------------------------------------------------------
 
@@ -65,10 +67,18 @@ static string ObjectFileName;
 //==========================================================================
 int main(int argc, char **argv)
 {
-	std::set_new_handler(ERR_BadAlloc);
+	set_new_handler(ERR_BadAlloc);
 
 	ArgCount = argc;
 	ArgVector = argv;
+
+	VecStr args = VecStr(argc);
+
+	for (int i = 0; i < argc; i++)
+	{
+
+	}
+
 	DisplayBanner();
 	Init();
 	TK_OpenSource(acs_SourceFileName);
@@ -77,7 +87,8 @@ int main(int argc, char **argv)
 	PC_CloseObject();
 	TK_CloseSource();
 
-	cerr << endl << "\"" << acs_SourceFileName << "\":" << endl
+	line();
+	cerr << "\"" << acs_SourceFileName << "\":" << endl
 		<< " " << tk_Line << " line" << ((tk_Line == 1) ? "" : "s")
 		<< " (" << tk_IncludedLines << " included)" << endl;
 
@@ -111,9 +122,11 @@ int main(int argc, char **argv)
 //==========================================================================
 static void DisplayBanner()
 {
-	line("\nOriginal ACC Version 1.10 by Ben Gokey");
-	line("Copyright (c) "COPYRIGHT_YEARS_TEXT" Raven Software, Corp.\n");
-	line("This is version "VERSION_TEXT" ("__DATE__")");
+	line();
+	line("Original ACC Version 1.10 by Ben Gokey");
+	line("Copyright (c) " + string(COPYRIGHT_YEARS_TEXT) + " Raven Software, Corp.");
+	line();
+	line("This is version " + string(VERSION_TEXT) + " (" + string(__DATE__) + ")");
 	line("This software is not supported by Raven Software or Activision");
 	line("ZDoom changes and language extensions by Randy Heit");
 	line("Further changes by Brad Carney");

@@ -430,37 +430,33 @@ enum pCode : int
 
 void PC_OpenObject(string name, int size, int flags);
 void PC_CloseObject();
-void PC_Append(byte *buffer, int size);
-void PC_AppendByte(byte val);
-void PC_AppendWord(short val);
-void PC_AppendInt(int val);
-void PC_AppendString(string string);
-void PC_AppendCmd(int command);
-void PC_AppendPushVal(int val);
-void PC_AppendShrink(byte val);
-void PC_Write(byte *buffer, int size, int address);
-void PC_WriteByte(byte val, int address);
-void PC_WriteInt(int val, int address);
-void PC_WriteString(string str, int address);
-void PC_WriteCmd(int command, int address);
-void PC_Skip(int size);
-void PC_SkipInt();
-void PC_AddScript(int number, int type, int flags, int argCount);
+void pCode_Append(int data);
+void pCode_Append(short data);
+void pCode_Append(byte data);
+void pCode_Append(string data);
+void pCode_AppendCommand(pCode cmd);
+void pCode_AppendPadding(int bytes);
+void pCode_AppendPushVal(int val);
+void pCode_AppendShrink(byte val);
+void pCode_Skip(int size);
+void PC_AddScript(int number, ScriptActivation type, ScriptFlag flags, int argCount);
 void PC_SetScriptVarCount(int number, int type, int varCount);
 void PC_AddFunction(ACS_Node *node);
 void PC_PutMapVariable(int index, int value);
 void PC_NameMapVariable(int index, ACS_Node *node);
 void PC_AddArray(int index, int size);
-void PC_InitArray(int index, vector<int> items, bool hasStrings);
+void PC_InitArray(int index, VecInt items, bool hasStrings);
 int  PC_AddImport(string name);
+void pCode_HexenEnforcer();
 
 // PUBLIC DATA DECLARATIONS ------------------------------------------------
 
 int				pCode_LastAppendedCommand;	// Last command written to the buffer
 int				pCode_TemporaryStorage;		// ? TODO: Remove?
-int				pCode_current;				// current position in buffer?
-storage			pCode_Buffer;				// int vector, stores pCodes and data
-storage			pCode_ByteSizes;			// int vector, stores byte size of each value in buffer, for shrinking
+int				pCode_current;				// current position in buffer
+int				pCode_size;					// Current size of buffer in bytes
+VecInt			pCode_Buffer;				// int vector, stores pCodes and data
+VecInt			pCode_ByteSizes;			// int vector, stores byte size of each value in buffer, for shrinking
 int				pCode_ScriptCount;			// Current script count
 int				pCode_FunctionCount;		// Current function count
 int				pCode_StructCount;			// Current struct count

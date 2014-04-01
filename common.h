@@ -58,6 +58,8 @@ using std::to_string;	// Convert integer to string
 #define MAX_STRUCT_VARIABLES 128	// "
 #define MAX_STRUCT_STATICS 32		// "
 #define MAX_STRUCT_METHODS 64		// "
+#define MAX_STRUCT_CONSTRUCTORS 16	// This should be enough. Seriously.
+#define MAX_STRUCT_OPERATORS 32		// "
 
 // These are just defs and have not been messed with
 #define ASCII_SPACE 32
@@ -79,6 +81,13 @@ using std::to_string;	// Convert integer to string
 #define lib(member) list[index].member = member
 #define libset(member) list[index].member = set(member)
 
+#define get_set(type,member,pointer) \
+	type member() { return pointer->member; } \
+	void member(type value) { pointer->member = value; }
+
+// [JRT] Global constants
+#define INVALID_INDEX	-1		// So an undefined array is quickly caught
+
 // TYPES -------------------------------------------------------------------
 
 class string;
@@ -86,26 +95,14 @@ template<class type> class vector;
 
 //Just for looks, honestly
 using byte = unsigned char;
-using storage = vector<int>;
-using StringList = vector<string>;
+using VecInt = vector<int>;
+using VecStr = vector<string>;
 
 enum ImportModes : int
 {
 	IMPORT_None,
 	IMPORT_Importing,
 	IMPORT_Exporting
-};
-
-enum StringListType : int
-{
-	STRLIST_PICS,
-	STRLIST_FUNCTIONS,
-	STRLIST_MAPVARS,
-	STRLIST_NAMEDSCRIPTS,
-	STRLIST_STRUCTS,
-	STRLIST_METHODS,
-
-	NUM_STRLISTS
 };
 
 // [JRT] Slightly modified std::string
@@ -119,6 +116,20 @@ public:
 	using std::string::operator+=;
 	using std::string::operator[];
 	using std::string::length;
+	(void)(*func)(int error);
+
+	string operator + (const int rParam)
+	{
+		return (*this).append(string(rParam));
+	}
+	string operator + (const string& rParam)
+	{
+		return (*this).append(rParam);
+	}
+	string operator + (string rParam)
+	{
+		return (*this).append(rParam);
+	}
 
 	string()				: std::string()  {}
 	string(std::string s)	: std::string(s) {}
@@ -152,6 +163,11 @@ public:
 	}
 };
 
+string operator + (int i, const string& rParam)
+{
+	return string(i).append(rParam);
+}
+
 //==========================================================================
 //
 // vector
@@ -163,7 +179,7 @@ template <class type> //Vector data type
 class vector : public std::vector<type>
 {
 protected:
-	int last_index;
+	int last_index = INVALID_INDEX;
 
 	using move_reference		= type&&;
 	using reference				= type&;
@@ -184,7 +200,7 @@ protected:
 		else if (pos == capacity())
 			resize();
 	}
-	
+
 	// Will not drop below zero
 	int tread(int index)
 	{
@@ -201,11 +217,14 @@ public:
 	using std::vector::data;
 	using std::vector::empty;
 	using std::vector::capacity;
+	using std::vector::reserve;
 
 	vector() : std::vector() {}
-	vector(int size) : std::vector(size) {}
-	//vector(const_reference rItem) : std::vector(rItem) {}
-	//vector(type rItem) : std::vector(rItem) {}
+	vector(int size)
+	{
+		reserve(size); //TODO: is this even useful?
+	}
+	vector(initializer_list<value_type> il, const allocator_type& alloc = allocator_type()) : std::vector(il, alloc) {}
 
 	vector& operator<< (move_reference rItem)
 	{
@@ -256,19 +275,14 @@ public:
 		if (pos + 1 < size())	// Check to see if position is filled
 		{
 			add(*spot);			// Add item in desired place to end,
-			*spot = item;		// then assign the item to the desired place
-			setLast(pos);
 		}
-		else
-		{
-			*spot = item;		// Assign the item to the desired place
-			setLast(pos);
-		}
+		*spot = item;			// then assign the item to the desired place
+		setLast(pos);
 	}
 	
 	void resize()
 	{
-		std::vector::resize(size() * 2);
+		std::vector::resize(size() + 1);
 	}
 	void resize(int size)
 	{

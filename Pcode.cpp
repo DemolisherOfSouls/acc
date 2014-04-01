@@ -47,9 +47,6 @@ struct functionInfo_t
 // PRIVATE FUNCTION PROTOTYPES ---------------------------------------------
 
 static void pCode_CommandLog(int location, int code, string prefix);
-static void Append(byte *buffer, int size);
-static void Write(byte *buffer, int size, int address);
-static void Skip(int size);
 static void CloseOld();
 static void CloseNew();
 static void CreateDummyScripts();
@@ -64,9 +61,9 @@ static void RecordDummyScripts();
 static bool ObjectOpened = false;
 static scriptInfo_t ScriptInfo[MAX_SCRIPT_COUNT];
 static functionInfo_t FunctionInfo[MAX_FUNCTION_COUNT];
-static int ArraySizes[MAX_MAP_VARIABLES];
-static int *ArrayInits[MAX_MAP_VARIABLES];
-static bool ArrayOfStrings[MAX_MAP_VARIABLES];
+static int ArraySizes[MAX_MAP_VARIABLES];					// TODO: Remove ArraySizes[]
+static int *ArrayInits[MAX_MAP_VARIABLES];					// TODO: Remove *ArrayInits[]
+static bool ArrayOfStrings[MAX_MAP_VARIABLES];				// TODO: Remove ArrayOfStrings[]
 static int NumArrays;
 static bool MapVariablesInit = false;
 static string ObjectName;
@@ -471,23 +468,21 @@ static void pCode_CommandLog(int location, int code, string prefix)
 // PC_OpenObject
 //
 //==========================================================================
-
 void PC_OpenObject(string name, size_t size, int flags)
 {
 	if(ObjectOpened)
-	{
 		PC_CloseObject();
-	}
+	
 	if(name.length() >= MAX_FILE_NAME_LENGTH)
-	{
 		ERR_Exit(ERR_FILE_NAME_TOO_LONG, false, name);
-	}
+	
 	ObjectName = name;
 	pCode_Buffer.resize(size);
+	pCode_ByteSizes.resize(size);
 	ObjectFlags = flags;
 	pCode_ScriptCount = 0;
 	ObjectOpened = true;
-	PC_AppendString("ACS");
+	pCode_Append("ACS");
 	PC_SkipInt(); // Script table offset
 }
 
@@ -496,14 +491,10 @@ void PC_OpenObject(string name, size_t size, int flags)
 // PC_CloseObject
 //
 //==========================================================================
-
 void PC_CloseObject()
 {
-	MS_Message(MSG_DEBUG, "---- PC_CloseObject ----");
-	while (pCode_current & 3)
-	{
-		PC_AppendByte (0);
-	}
+	Message(MSG_DEBUG, "---- PC_CloseObject ----");
+	pCode_AppendPadding(4 - pCode_size % 4);
 	if (!pCode_NoShrink || (NumLanguages > 1) || (NumStringLists > 0) ||
 		(pCode_FunctionCount > 0) || MapVariablesInit || NumArrays != 0 ||
 		pCode_EncryptStrings || !Imports.empty || HaveExtendedScripts)
@@ -535,20 +526,17 @@ void PC_CloseObject()
 // CloseOld
 //
 //==========================================================================
-
 static void CloseOld()
 {
 	STR_WriteStrings();
-	PC_WriteInt(pCode_current, 4);
-	PC_AppendInt(pCode_ScriptCount);
-	for (int i = 0; i < pCode_ScriptCount; ++i)
+	pCode_Append(pCode_ScriptCount);
+	for (scriptInfo_t &info : ScriptInfo)
 	{
-		scriptInfo_t *info = &ScriptInfo[i];
 		MS_Message(MSG_DEBUG, "Script %d, address = %d, arg count = %d\n",
-			info->number, info->address, info->argCount);
-		PC_AppendInt((info->number + info->type * 1000));
-		PC_AppendInt(info->address);
-		PC_AppendInt(info->argCount);
+			info.number, info.address, info.argCount);
+		pCode_Append((info.number + info.type * 1000));
+		pCode_Append(info.address);
+		pCode_Append((int)info.argCount);
 	}
 	STR_WriteList();
 }
@@ -918,37 +906,32 @@ static void CloseNew()
 	}
 	else
 	{
-		PC_AppendInt(0);
+		pCode_Append(0);
 	}
-	PC_AppendInt(0);
+	pCode_Append(0);
 }
 
 //==========================================================================
 //
-// CreateDummyScriptspCode_ScriptCount
+// CreateDummyScripts
 //
 //==========================================================================
-
 static void CreateDummyScripts()
 {
 	Message(MSG_DEBUG, "Creating dummy scripts to make WadAuthor happy.");
-	if(pCode_current % 4 != 0)
-	{ // Need to align
-		int pad = 0;
-		PC_Append((void *)&pad, 4 - (pCode_current % 4));
-	}
+	pCode_AppendPadding(4 - (pCode_current % 4));
 	pCode_TemporaryStorage = pCode_current;
 	for(int i = 0; i < pCode_ScriptCount; ++i)
 	{
 		// Only create dummies for scripts WadAuthor could care about.
 		if(!ScriptInfo[i].imported && ScriptInfo[i].number >= 0 && ScriptInfo[i].number <= 255)
 		{
-			PC_AppendCmd(PCD_TERMINATE);
+			pCode_AppendCommand(PCD_TERMINATE);
 			if(!pCode_NoShrink)
 			{
-				PC_AppendCmd(PCD_NOP);
-				PC_AppendCmd(PCD_NOP);
-				PC_AppendCmd(PCD_NOP);
+				pCode_AppendCommand(PCD_NOP);
+				pCode_AppendCommand(PCD_NOP);
+				pCode_AppendCommand(PCD_NOP);
 			}
 		}
 	}
@@ -959,7 +942,6 @@ static void CreateDummyScripts()
 // RecordDummyScripts
 //
 //==========================================================================
-
 static void RecordDummyScripts()
 {
 	int i, j, count;
@@ -971,7 +953,7 @@ static void RecordDummyScripts()
 			++count;
 		}
 	}
-	PC_AppendInt(count);
+	pCode_Append(count);
 	for(i = j = 0; i < pCode_ScriptCount; ++i)
 	{
 		scriptInfo_t *info = &ScriptInfo[i];
@@ -979,9 +961,9 @@ static void RecordDummyScripts()
 		{
 			MS_Message(MSG_DEBUG, "Dummy script %d, address = %d, arg count = %d\n",
 				info->number, info->address, info->argCount);
-			PC_AppendInt(info->number);
-			PC_AppendInt(pCode_DummyAddress + j*4);
-			PC_AppendInt(info->argCount);
+			pCode_Append((int)info->number);
+			pCode_Append(pCode_TemporaryStorage + j * 4);
+			pCode_Append((int)info->argCount);
 			j++;
 		}
 	}
@@ -1001,6 +983,7 @@ void pCode_Append(int data)
 		data = MS_LittleUINT(data);
 		pCode_Buffer.add(data);
 		pCode_ByteSizes.add(4);
+		pCode_size += 4;
 		pCode_current++;
 	}
 }
@@ -1012,6 +995,7 @@ void pCode_Append(short data)
 		data = MS_LittleUWORD(data);
 		pCode_Buffer.add(data);
 		pCode_ByteSizes.add(2);
+		pCode_size += 2;
 		pCode_current++;
 	}
 }
@@ -1022,6 +1006,7 @@ void pCode_Append(byte data)
 		Message(MSG_DEBUG, "AB> " + string(pCode_current) + " = " + string(data));
 		pCode_Buffer.add(data);
 		pCode_ByteSizes.add(1);
+		pCode_size++;
 		pCode_current++;
 	}
 }
@@ -1033,6 +1018,7 @@ void pCode_Append(string data)
 		Message(MSG_DEBUG, "AC> " + string(pCode_current) + " = " + data);
 		pCode_Buffer.add(c);
 		pCode_ByteSizes.add(1);
+		pCode_size++;
 		pCode_current++;
 	}
 }
@@ -1057,7 +1043,7 @@ void pCode_AppendCommand(pCode cmd)
 				cmd = PCD_PUSHBYTE;
 				dupbyte = true;
 				Message(MSG_DEBUG, "AP> PCD_DUP changed to PCD_PUSHBYTE");
-			}
+			} // TODO: analyse and fix this mess
 			else if (cmd != PCD_PUSHBYTE && PushByteAddr)
 			{ // Maybe shrink a PCD_PUSHBYTE sequence into PCD_PUSHBYTES
 				int runlen = (pCode_current - PushByteAddr) / 2;
@@ -1116,39 +1102,14 @@ void pCode_AppendCommand(pCode cmd)
 	}
 }
 
-template <class type>
-static void Append(type *buffer, size_t size = sizeof(type))
+void pCode_AppendPadding(int bytes)
 {
-	if (ImportMode != IMPORT_Importing)
+	for (int i = 0; i < bytes; i++)
 	{
-		for (int i = 0; i < size; i++)
-		{
-			pCode_Buffer << buffer[i];
-			pCode_Current = pCode_Buffer.lastAdded();
-		}
-		pCode_Current += size;
-	}
-}
-
-void PC_Append(void *buffer, size_t size)
-{
-	if (ImportMode != IMPORT_Importing)
-	{
-		MS_Message(MSG_DEBUG, "AD> %06d = (%d bytes)\n", pCode_current, size);
-		Append(buffer, size);
-	}
-}
-
-void PC_AppendString(char *string)
-{
-	if (ImportMode != IMPORT_Importing)
-	{
-		int length;
-
-		length = strlen(string)+1;
-		MS_Message(MSG_DEBUG, "AS> %06d = \"%s\" (%d bytes)\n",
-			pCode_current, string, length);
-		Append(string, length);
+		pCode_Buffer.add(0);
+		pCode_ByteSizes.add(1);
+		pCode_current++;
+		pCode_size++;
 	}
 }
 
@@ -1187,119 +1148,14 @@ void pCode_AppendPushVal(int val)
 
 //==========================================================================
 //
-// PC_Write functions
+// pCode_Skip
 //
 //==========================================================================
-
-template <typename T>
-inline void write(std::ostream &stream, T const &data)
-{
-	stream.write((char const *)&data, sizeof(data));
-}
-
-template <class type>
-static void Write(type *buffer, int address, int size = sizeof(type))
+static void pCode_Skip(int size)
 {
 	if (ImportMode != IMPORT_Importing)
 	{
-		if(address+size > pCode_Buffer.size())
-		{
-			GrowBuffer();
-		}
-		copy(*(&pCode_Buffer+address), buffer, size);
-	}
-}
-
-void PC_Write(void *buffer, int address, size_t size)
-{
-	if (ImportMode != IMPORT_Importing)
-	{
-		MS_Message(MSG_DEBUG, "WD> %06d = (%d bytes)\n", address, size);
-		Write(buffer, address, size);
-	}
-}
-
-void PC_WriteByte(byte val, int address)
-{
-	if (ImportMode != IMPORT_Importing)
-	{
-		MS_Message(MSG_DEBUG, "WB> %06d = %d\n", address, val);
-		Write(&val, address);
-	}
-}
-
-void PC_WriteInt(int val, int address)
-{
-	if (ImportMode != IMPORT_Importing)
-	{
-		MS_Message(MSG_DEBUG, "WL> %06d = %d\n", address, val);
-		val = MS_LittleUINT(val);
-		Write(&val, address);
-	}
-	pCode_LastAppendedCommand = PCD_NOP;
-}
-
-void PC_WriteString(char *string, int address)
-{
-	if (ImportMode != IMPORT_Importing)
-	{
-		int length;
-
-		length = strlen(string)+1;
-		MS_Message(MSG_DEBUG, "WS> %06d = \"%s\" (%d bytes)\n",
-			address, string, length);
-		Write(string, address, length);
-	}
-}
-
-void PC_WriteCmd(int command, int address)
-{
-	if (ImportMode != IMPORT_Importing)
-	{
-		pCode_CommandLog(address, command, "WC");
-		command = MS_LittleUINT(command);
-		Write(&command, address);
-	}
-}
-
-//==========================================================================
-//
-// PC_Skip functions
-//
-//==========================================================================
-
-static void Skip(int size)
-{
-	if (ImportMode != IMPORT_Importing)
-	{
-		if(*pCode_Current+size > pCode_Buffer.size())
-			pCode_Buffer.resize();
-
-		pCode_Current += size;
-	}
-}
-
-template <class type>
-static void Skip(type obj = new type)
-{
-	Skip(sizeof(obj));
-}
-
-void PC_Skip(int size)
-{
-	if (ImportMode != IMPORT_Importing)
-	{
-		Message(MSG_DEBUG, "SD> " + string(pCode_current) + " (skip " + string(size) + " bytes)");
-		Skip(size);
-	}
-}
-
-void PC_SkipInt()
-{
-	if (ImportMode != IMPORT_Importing)
-	{
-		Message(MSG_DEBUG, "SL> " + string(*pCode_Current) + " (skip int)");
-		Skip<int>();
+		pCode_AppendPadding(size);
 	}
 }
 
@@ -1308,19 +1164,16 @@ void PC_SkipInt()
 // PC_PutMapVariable
 //
 //==========================================================================
-//TODO: Make this proper
-void PC_PutMapVariable(int index, int value)
+void PC_PutMapVariable(int value) // Add naming?
 {
-	if(index < MAX_MAP_VARIABLES)
+	if (sym_Variables.size() < MAX_MAP_VARIABLES) // TODO: separate map variables, and separate global/world vars
 	{
-		sym_Variables[index].type = (pa_ConstExprIsString)? VAR_STR:VAR_INT;
-		sym_Variables[index].initializer = value;
-		sym_Variables[index].isDeclared = true;
-		sym_Variables[index].isAssigned = true;
-		if(pCode_EnforceHexen)
-		{
-			ERR_Error(ERR_HEXEN_COMPAT, true);
-		}
+		ACS_Var temp = ACS_Var("", (pa_ConstExprIsString) ? VAR_STR : VAR_INT, pa_CurrentDepth, true, false);
+		temp.initializer = value;
+		temp.isDeclared = true;
+		sym_Variables.add(move(temp));
+		sym_Variables.lastAdded().index = sym_Variables.lastIndex();
+		pCode_HexenEnforcer();
 	}
 }
 
@@ -1329,13 +1182,12 @@ void PC_PutMapVariable(int index, int value)
 // PC_NameMapVariable
 //
 //==========================================================================
-//TODO: Make this proper
-void PC_NameMapVariable(int index, ACS_Node *sym)
+void PC_NameMapVariable(int index, ACS_Node *node) // Why is name down here?
 {
-	if(index < MAX_MAP_VARIABLES)
+	if(index < MAX_MAP_VARIABLES)  // TODO: separate map variables, and separate global/world vars
 	{
-		sym_Variables[index].name = sym->name;
-		sym_Variables[index].isImported = sym->isImported;
+		sym_Variables[index].name = node->name();
+		sym_Variables[index].isImported = node->isImported();
 	}
 }
 
@@ -1344,34 +1196,30 @@ void PC_NameMapVariable(int index, ACS_Node *sym)
 // PC_AddScript
 //
 //==========================================================================
-void PC_AddScript(int number, ScriptType type, int flags, int argCount)
+void PC_AddScript(int number, ScriptActivation type, int flags, int argCount)
 {
-	ACS_Script *script;
-
 	if (flags != 0 || number < 0 || number >= 1000)
 	{
 		HaveExtendedScripts = true;
-		if(pCode_EnforceHexen)
-			ERR_Error(ERR_HEXEN_COMPAT, true);
+		pCode_HexenEnforcer();
 	}
 
-	for (int i = 0; i < pCode_ScriptCount; i++)
-		if (sym_Scripts[i].number == number)
+	for (ACS_Script& item : sym_Scripts)
+		if (item.number == number)
 			ERR_Error(ERR_SCRIPT_ALREADY_DEFINED, true);
 
-	if(pCode_ScriptCount == MAX_SCRIPT_COUNT)
+	if (sym_Scripts.size() == MAX_SCRIPT_COUNT)
 		ERR_Error(ERR_TOO_MANY_SCRIPTS, true);
 
 	else
 	{
-		script = &sym_Scripts[pCode_ScriptCount];
-		script->number = number;
-		script->type = type;
-		script->address = (ImportMode == IMPORT_Importing) ? 0 : *pCode_Current;
-		script->argCount = argCount;
-		script->flags = flags;
-		script->srcLine = tk_Line;
-		script->isImported = (ImportMode == IMPORT_Importing) ? true : false;
+		ACS_Script script = ACS_Script(number, argCount, flags, type);
+		script.srcLine = tk_Line;
+		script.isImported = (ImportMode == IMPORT_Importing);
+		if (!script.isImported)
+			script.address = pCode_current;
+		sym_Scripts.add(move(script));
+		sym_Scripts.lastAdded().index = sym_Scripts.lastIndex();
 		pCode_ScriptCount++;
 	}
 }
@@ -1384,9 +1232,9 @@ void PC_AddScript(int number, ScriptType type, int flags, int argCount)
 // arguments.
 //
 //==========================================================================
-void PC_SetScriptVarCount(int number, ScriptType type, int varCount)
+void PC_SetScriptVarCount(int number, ScriptActivation type, int varCount)
 {
-	for each(ACS_Script script in sym_Scripts)
+	for (ACS_Script &script : sym_Scripts)
 	{
 		if (script.number == number && script.type == type)
 		{
@@ -1403,21 +1251,22 @@ void PC_SetScriptVarCount(int number, ScriptType type, int varCount)
 //==========================================================================
 void PC_AddFunction(ACS_Node *node)
 {
-	ACS_Function *function;
-
 	if(pCode_FunctionCount == MAX_FUNCTION_COUNT)
 		ERR_Error(ERR_TOO_MANY_FUNCTIONS, true, NULL);
 	
-	else if(pCode_EnforceHexen)
-		ERR_Error(ERR_HEXEN_COMPAT, true);
+	pCode_HexenEnforcer();
 
-	function = &sym_Functions[pCode_FunctionCount];
-	function->type = node->cmd->type;
-	function->argTypes = node->cmd->argTypes;
-	function->varCount = node->cmd->varCount;
-	function->name = STR_AppendToList (STRLIST_FUNCTIONS, node->name);
-	function->address = node->cmd->address;
-	function->index = pCode_FunctionCount;
+	ACS_Function function = ACS_Function(node->name(), node->type, node->cmd->argTypes, node->depth());
+
+	function.type = node->cmd->type;
+	function.argTypes = node->cmd->argTypes;
+	function.varCount = node->cmd->varCount;
+	function.name = STR_AppendToList (STRLIST_FUNCTIONS, node->name);
+	function.address = node->cmd->address;
+	function.index = pCode_FunctionCount;
+
+	sym_Functions.add(move(function));
+
 	pCode_FunctionCount++;
 }
 
@@ -1430,10 +1279,7 @@ void PC_AddArray(int index, int size)
 {
 	NumArrays++;
 	ArraySizes[index] = size;
-	if(pCode_EnforceHexen)
-	{
-		ERR_Error(ERR_HEXEN_COMPAT, true);
-	}
+	pCode_HexenEnforcer();
 }
 
 //==========================================================================
@@ -1473,10 +1319,20 @@ int PC_AddImport(string name)
 	{
 		ERR_Exit(ERR_TOO_MANY_IMPORTS, true);
 	}
-	else if(pCode_EnforceHexen)
-	{
-		ERR_Error(ERR_HEXEN_COMPAT, true);
-	}
-	Imports.add(name); //add?
+	pCode_HexenEnforcer();
+	Imports.add(name);
 	return Imports.size();
+}
+
+//==========================================================================
+//
+// pCode_HexenEnforcer
+//
+// Simple inline function that throws an error if required, to make neater code
+//
+//==========================================================================
+inline void pCode_HexenEnforcer()
+{
+	if (pCode_EnforceHexen)
+		ERR_Error(ERR_HEXEN_COMPAT, true);
 }
