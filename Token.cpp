@@ -115,7 +115,7 @@ static char ASCIIToHexDigit[256];
 static string TokenStringBuffer;
 static nestInfo_t OpenFiles[MAX_NESTED_SOURCES];
 static bool AlreadyGot;
-static int NestDepth;
+static int NestDepth;								// The file depth in includes, for nesting. ?
 static bool IncLineNumber;
 static VecStr FileNames;
 static size_t FileNamesLen;
@@ -125,7 +125,7 @@ static size_t FileNamesLen;
 // Include path 0 is always set to the directory of the file being parsed.
 static VecStr IncludePaths;
 
-struct keyword_s
+struct Keyword
 {
 	string name;
 	tokenType_t token;
@@ -213,7 +213,7 @@ struct keyword_s
 	{ "operator", TK_OPERATOR }
 };
 
-#define NUM_KEYWORDS (sizeof(Keywords)/sizeof(keyword_s))
+#define NUM_KEYWORDS (sizeof(Keywords)/sizeof(Keyword))
 
 // CODE --------------------------------------------------------------------
 
@@ -262,7 +262,7 @@ void TK_Init() {
 	MasterSourceLine = "";			// master line - Ty 07jan2000
 	MasterSourcePos = 0;			// master position - Ty 07jan2000
 	ClearMasterSourceLine = true;	// clear the line to start
-	qsort(Keywords, NUM_KEYWORDS, sizeof (keyword_s), SortKeywords);
+	qsort(Keywords, NUM_KEYWORDS, sizeof(Keyword), SortKeywords);
 	FileNames = VecStr(MAX_INCLUDE_PATHS);
 	File = vector<char>(DEFAULT_OBJECT_SIZE);
 }
@@ -274,7 +274,7 @@ void TK_Init() {
 //==========================================================================
 static int SortKeywords(const void *a, const void *b)
 {
-	return ((keyword_s *) a)->name.compare(((keyword_s *) b)->name);
+	return ((Keyword *)a)->name.compare(((Keyword *)b)->name);
 }
 
 //==========================================================================
@@ -392,7 +392,8 @@ static void SetLocalIncludePath(string sourceName)
 {
 	IncludePaths.prefer(0, move(sourceName));
 
-	if (MS_StripFilename(IncludePaths.lastAdded()) == false) {
+	if (!MS_StripFilename(IncludePaths.lastAdded()))
+	{
 		IncludePaths.lastAdded = "";
 	}
 }
@@ -409,7 +410,7 @@ void TK_Include(string fileName)
 	nestInfo_t *info;
 	bool foundfile = false;
 
-	MS_Message(MSG_DEBUG, "*Including %s\n", fileName);
+	Message(MSG_DEBUG, "*Including " + fileName);
 	if (NestDepth == MAX_NESTED_SOURCES) {
 		ERR_Exit(ERR_INCL_NESTING_TOO_DEEP, true, fileName);
 	}
@@ -445,10 +446,11 @@ void TK_Include(string fileName)
 	} else {
 		// Pascal 12/11/08
 		// Find the file in the include paths
-		for (int i = 0; i < IncludePaths.size; i++) {
-			sourceName = IncludePaths[i];
-			sourceName += fileName;
-			if (MS_FileExists(sourceName)) {
+		for (string src : IncludePaths)
+		{
+			src += fileName;
+			if (MS_FileExists(src))
+			{
 				foundfile = true;
 				break;
 			}
@@ -460,7 +462,7 @@ void TK_Include(string fileName)
 		ERR_Exit(ERR_CANT_FIND_INCLUDE, true, fileName, tk_SourceName, tk_Line);
 	}
 
-	MS_Message(MSG_DEBUG, "*Include file found at %s\n", sourceName);
+	Message(MSG_DEBUG, "*Include file found at " + sourceName);
 
 	// Now change the first include path to the file directory
 	SetLocalIncludePath(sourceName);
@@ -481,7 +483,6 @@ void TK_Include(string fileName)
 // TK_Import
 //
 //==========================================================================
-
 void TK_Import(string fileName, ImportModes prevMode) {
 	TK_Include(fileName);
 	OpenFiles[NestDepth - 1].imported = true;
@@ -494,12 +495,11 @@ void TK_Import(string fileName, ImportModes prevMode) {
 // PopNestedSource
 //
 //==========================================================================
-
 static int PopNestedSource(enum ImportModes *prevMode) {
 	nestInfo_t *info;
 	//TODO:Finsh this
 	MS_Message(MSG_DEBUG, "*Leaving %s\n", tk_SourceName);
-	SY_FreeConstants(NestDepth);
+	sym_FreeConstants(NestDepth);
 	tk_IncludedLines += tk_Line;
 	info = &OpenFiles[--NestDepth];
 	tk_SourceName = info->name;
@@ -523,9 +523,10 @@ static int PopNestedSource(enum ImportModes *prevMode) {
 // TK_CloseSource
 //
 //==========================================================================
-
-void TK_CloseSource() {
-	if (SourceOpen) {
+void TK_CloseSource()
+{
+	if (SourceOpen)
+	{
 		File.clear();
 		SourceOpen = false;
 	}
@@ -537,7 +538,8 @@ void TK_CloseSource() {
 //
 //==========================================================================
 
-int TK_GetDepth() {
+int TK_GetDepth()
+{
 	return NestDepth;
 }
 
@@ -547,11 +549,13 @@ int TK_GetDepth() {
 //
 //==========================================================================
 
-tokenType_t TK_NextToken() {
+tokenType_t TK_NextToken()
+{
 	enum ImportModes prevMode;
 	bool validToken = false;
 
-	if (AlreadyGot == true) {
+	if (AlreadyGot == true)
+	{
 		int t = MasterSourcePos;
 		MasterSourcePos = PrevMasterSourcePos;
 		PrevMasterSourcePos = t;
@@ -560,10 +564,12 @@ tokenType_t TK_NextToken() {
 	}
 	PrevMasterSourcePos = MasterSourcePos;
 	do {
-		while (Chr == ASCII_SPACE) {
+		while (Chr == ASCII_SPACE)
+		{
 			NextChr();
 		}
-		switch (ASCIIToChrCode[(byte) Chr]) {
+		switch (ASCIIToChrCode[Chr])
+		{
 			case CHR_EOF:
 				tk_Token = TK_EOF;
 				break;
@@ -580,21 +586,21 @@ tokenType_t TK_NextToken() {
 				ProcessSpecialToken();
 				break;
 		}
-		if (tk_Token == TK_STARTCOMMENT) {
+		if (tk_Token == TK_STARTCOMMENT)
 			SkipComment();
-		} else if (tk_Token == TK_CPPCOMMENT) {
+		else if (tk_Token == TK_CPPCOMMENT)
 			SkipCPPComment();
-		} else if ((tk_Token == TK_EOF) && (NestDepth > 0)) {
-			if (PopNestedSource(&prevMode)) {
+		else if ((tk_Token == TK_EOF) && (NestDepth > 0)) {
+			if (PopNestedSource(&prevMode))
+			{
 				ImportMode = prevMode;
 				if (!ExporterFlagged) {
 					ERR_Exit(ERR_EXPORTER_NOT_FLAGGED, false);
 				}
 				SY_ClearShared();
 			}
-		} else {
+		} else
 			validToken = true;
-		}
 	} while (validToken == false);
 	return tk_Token;
 }
@@ -605,16 +611,17 @@ tokenType_t TK_NextToken() {
 //
 //==========================================================================
 
-int TK_NextCharacter() {
-	int c;
+int TK_NextCharacter()
+{
+	char c = Chr;
 
-	while (Chr == ASCII_SPACE) {
+	while (Chr == ASCII_SPACE)
 		NextChr();
-	}
-	c = (int) Chr;
-	if (c == EOF_CHARACTER) {
-		c = -1;
-	}
+
+	if (Chr == EOF_CHARACTER)
+		return (-1);
+
+	c = Chr;
 	NextChr();
 	return c;
 }
@@ -674,7 +681,6 @@ bool TK_NextTokenMustBe(int token, int error) {
 // TK_TokenMustBe
 //
 //==========================================================================
-
 bool TK_TokenMustBe(int token, int error) {
 	if (token == TK_SEMICOLON && forSemicolonHack) {
 		token = TK_RPAREN;
@@ -705,7 +711,6 @@ bool TK_TokenMustBe(int token, int error) {
 // TK_Member
 //
 //==========================================================================
-
 bool TK_Member(tokenType_t *list) {
 	int i;
 
@@ -722,7 +727,6 @@ bool TK_Member(tokenType_t *list) {
 // TK_Undo
 //
 //==========================================================================
-
 void TK_Undo() {
 	if (tk_Token != TK_NONE) {
 		if (AlreadyGot == false) {
@@ -739,7 +743,6 @@ void TK_Undo() {
 // ProcessLetterToken
 //
 //==========================================================================
-
 static void ProcessLetterToken() {
 	int pos = 0;
 	while (ASCIIToChrCode[Chr] == CHR_LETTER
@@ -764,7 +767,6 @@ static void ProcessLetterToken() {
 // CheckForKeyword
 //
 //==========================================================================
-
 static bool CheckForKeyword() {
 	int min, max, probe, lexx;
 
@@ -794,9 +796,8 @@ static bool CheckForKeyword() {
 // CheckForLineSpecial
 //
 //==========================================================================
-
 static bool CheckForLineSpecial() {
-	symbolNode_t *sym;
+	ACS_Node *sym;
 
 	sym = SY_FindGlobal(tk_String);
 	if (sym == NULL) {
@@ -816,7 +817,6 @@ static bool CheckForLineSpecial() {
 // CheckForConstant
 //
 //==========================================================================
-
 static bool CheckForConstant() {
 	symbolNode_t *sym;
 
