@@ -417,7 +417,7 @@ void TK_Include(string fileName)
 	info = &OpenFiles[NestDepth++];
 	info->name = tk_SourceName;
 	info->size = File.size;
-	info->pos = FilePtr;
+	info->pos = Pos;
 	info->line = tk_Line;
 	info->incLineNumber = IncLineNumber;
 	info->lastChar = Chr;
@@ -468,8 +468,9 @@ void TK_Include(string fileName)
 	SetLocalIncludePath(sourceName);
 
 	tk_SourceName = AddFileName(sourceName);
-	MS_LoadFile(tk_SourceName, &File);
-	FilePtr = FileStart;
+
+	MS_LoadFile(tk_SourceName, File.data());
+	Pos = 0;
 	tk_Line = 1;
 	IncLineNumber = false;
 	tk_Token = TK_NONE;
@@ -495,11 +496,14 @@ void TK_Import(string fileName, ImportModes prevMode) {
 // PopNestedSource
 //
 //==========================================================================
-static int PopNestedSource(enum ImportModes *prevMode) {
-	nestInfo_t *info;
+static int PopNestedSource(ImportModes *prevMode)
+{
+	Message(MSG_DEBUG, "*Leaving " + tk_SourceName);
+	sym_(NestDepth);
+
+	nestInfo_t *info = &OpenFiles[--NestDepth];
 	//TODO:Finsh this
-	MS_Message(MSG_DEBUG, "*Leaving %s\n", tk_SourceName);
-	sym_FreeConstants(NestDepth);
+	
 	tk_IncludedLines += tk_Line;
 	info = &OpenFiles[--NestDepth];
 	tk_SourceName = info->name;
@@ -818,7 +822,7 @@ static bool CheckForLineSpecial() {
 //
 //==========================================================================
 static bool CheckForConstant() {
-	symbolNode_t *sym;
+	ACS_Node *sym;
 
 	sym = SY_FindGlobal(tk_String);
 	if (sym == NULL) {
@@ -954,7 +958,6 @@ static int DigitValue(char digit, int radix) {
 // ProcessQuoteToken
 //
 //==========================================================================
-
 static void ProcessQuoteToken() {
 	int length = 0;
 	bool escaped;
@@ -989,266 +992,270 @@ static void ProcessQuoteToken() {
 // ProcessSpecialToken
 //
 //==========================================================================
-
-static void ProcessSpecialToken() {
-	char c;
-
-	c = Chr;
+static void ProcessSpecialToken()
+{
+	char c = Chr;
 	NextChr();
-	switch (c) {
-		case '+':
-			switch (Chr) {
-				case '=':
-					tk_Token = TK_ADDASSIGN;
-					NextChr();
-					break;
-				case '+':
-					tk_Token = TK_INC;
-					NextChr();
-					break;
-				default:
-					tk_Token = TK_PLUS;
-					break;
-			}
-			break;
-		case '-':
-			switch (Chr) {
-				case '=':
-					tk_Token = TK_SUBASSIGN;
-					NextChr();
-					break;
-				case '-':
-					tk_Token = TK_DEC;
-					NextChr();
-					break;
-				case '>':
-					tk_Token = TK_POINTERTO;
-					NextChr();
-					break;
-				default:
-					tk_Token = TK_MINUS;
-					break;
-			}
-			break;
-		case '*':
-			switch (Chr) {
-				case '=':
-					tk_Token = TK_MULASSIGN;
-					NextChr();
-					break;
-				case '/':
-					tk_Token = TK_ENDCOMMENT;
-					NextChr();
-					break;
-				default:
-					tk_Token = TK_ASTERISK;
-					break;
-			}
-			break;
-		case '/':
-			switch (Chr) {
-				case '=':
-					tk_Token = TK_DIVASSIGN;
-					NextChr();
-					break;
-				case '/':
-					tk_Token = TK_CPPCOMMENT;
-					break;
-				case '*':
-					tk_Token = TK_STARTCOMMENT;
-					NextChr();
-					break;
-				default:
-					tk_Token = TK_SLASH;
-					break;
-			}
-			break;
-		case '%':
-			if (Chr == '=') {
-				tk_Token = TK_MODASSIGN;
-				NextChr();
-			} else {
-				tk_Token = TK_PERCENT;
-			}
-			break;
-		case '=':
-			if (Chr == '=') {
-				tk_Token = TK_EQ;
-				NextChr();
-			} else {
-				tk_Token = TK_ASSIGN;
-			}
-			break;
-		case '<':
-			if (Chr == '=') {
-				tk_Token = TK_LE;
-				NextChr();
-			} else if (Chr == '<') {
-				NextChr();
-				if (Chr == '=') {
-					tk_Token = TK_LSASSIGN;
-					NextChr();
-				} else {
-					tk_Token = TK_LSHIFT;
-				}
 
-			} else {
-				tk_Token = TK_LT;
-			}
-			break;
-		case '>':
-			if (Chr == '=') {
-				tk_Token = TK_GE;
-				NextChr();
-			} else if (Chr == '>') {
-				NextChr();
-				if (Chr == '=') {
-					tk_Token = TK_RSASSIGN;
-					NextChr();
-				} else {
-					tk_Token = TK_RSHIFT;
-				}
-			} else {
-				tk_Token = TK_GT;
-			}
-			break;
-		case '!':
-			if (Chr == '=') {
-				tk_Token = TK_NE;
-				NextChr();
-			} else {
-				tk_Token = TK_NOT;
-			}
-			break;
-		case '&':
-			if (Chr == '&') {
-				tk_Token = TK_ANDLOGICAL;
-				NextChr();
-			} else if (Chr == '=') {
-				tk_Token = TK_ANDASSIGN;
-				NextChr();
-			} else {
-				tk_Token = TK_ANDBITWISE;
-			}
-			break;
-		case '|':
-			if (Chr == '|') {
-				tk_Token = TK_ORLOGICAL;
-				NextChr();
-			} else if (Chr == '=') {
-				tk_Token = TK_ORASSIGN;
-				NextChr();
-			} else {
-				tk_Token = TK_ORBITWISE;
-			}
-			break;
-		case '(':
-			tk_Token = TK_LPAREN;
-			break;
-		case ')':
-			tk_Token = TK_RPAREN;
-			break;
-		case '{':
-			tk_Token = TK_LBRACE;
-			break;
-		case '}':
-			tk_Token = TK_RBRACE;
-			break;
-		case '[':
-			tk_Token = TK_LBRACKET;
-			break;
-		case ']':
-			tk_Token = TK_RBRACKET;
-			break;
-		case ':':
-			tk_Token = TK_COLON;
-			break;
-		case ';':
-			tk_Token = TK_SEMICOLON;
-			break;
-		case ',':
-			tk_Token = TK_COMMA;
-			break;
-		case '.':
-			tk_Token = TK_PERIOD;
-			break;
-		case '#':
-			tk_Token = TK_NUMBERSIGN;
-			break;
-		case '^':
-			if (Chr == '=') {
-				tk_Token = TK_EORASSIGN;
-				NextChr();
-			} else {
-				tk_Token = TK_EORBITWISE;
-			}
-			break;
-		case '~':
-			tk_Token = TK_TILDE;
-			break;
-		case '?':
-			tk_Token = TK_QSTART;
-			break;
-		case '\'':
-			if (Chr == '\\') {
-				NextChr();
-				switch (Chr) {
-					case '0': case '1': case '2': case '3':
-					case '4': case '5': case '6': case '7':
-						tk_Number = OctalChar();
-						break;
-					case 'x': case 'X':
-						NextChr();
-						EvalHexConstant();
-						if (Chr != '\'') {
-							ERR_Exit(ERR_BAD_CHARACTER_CONSTANT, true, NULL);
-						}
-						NextChr();
-						break;
-					case 'a':
-						tk_Number = '\a';
-						break;
-					case 'b':
-						tk_Number = '\b';
-						break;
-					case 't':
-						tk_Number = '\t';
-						break;
-					case 'v':
-						tk_Number = '\v';
-						break;
-					case 'n':
-						tk_Number = '\n';
-						break;
-					case 'f':
-						tk_Number = '\f';
-						break;
-					case 'r':
-						tk_Number = '\r';
-						break;
-					case '\'':
-					case '\\':
-						tk_Number = Chr;
-						break;
-					default:
-						ERR_Exit(ERR_BAD_CHARACTER_CONSTANT, true, NULL);
-				}
-				tk_Token = TK_NUMBER;
-			} else if (Chr == '\'') {
-				ERR_Exit(ERR_BAD_CHARACTER_CONSTANT, true, NULL);
-			} else {
-				tk_Number = Chr;
-				tk_Token = TK_NUMBER;
-			}
+	switch (c)
+	{
+	case '+':
+		switch (Chr)
+		{
+		case '=':
+			tk_Token = TK_ADDASSIGN;
 			NextChr();
-			if (Chr != '\'') {
-				ERR_Exit(ERR_BAD_CHARACTER_CONSTANT, true, NULL);
-			}
+			break;
+		case '+':
+			tk_Token = TK_INC;
 			NextChr();
 			break;
 		default:
-			ERR_Exit(ERR_BAD_CHARACTER, true, NULL);
+			tk_Token = TK_PLUS;
 			break;
+		}
+		break;
+	case '-':
+		switch (Chr) {
+			case '=':
+				tk_Token = TK_SUBASSIGN;
+				NextChr();
+				break;
+			case '-':
+				tk_Token = TK_DEC;
+				NextChr();
+				break;
+			case '>':
+				tk_Token = TK_POINTERTO;
+				NextChr();
+				break;
+			default:
+				tk_Token = TK_MINUS;
+				break;
+		}
+		break;
+	case '*':
+		switch (Chr) {
+			case '=':
+				tk_Token = TK_MULASSIGN;
+				NextChr();
+				break;
+			case '/':
+				tk_Token = TK_ENDCOMMENT;
+				NextChr();
+				break;
+			default:
+				tk_Token = TK_ASTERISK;
+				break;
+		}
+		break;
+	case '/':
+		switch (Chr) {
+			case '=':
+				tk_Token = TK_DIVASSIGN;
+				NextChr();
+				break;
+			case '/':
+				tk_Token = TK_CPPCOMMENT;
+				break;
+			case '*':
+				tk_Token = TK_STARTCOMMENT;
+				NextChr();
+				break;
+			default:
+				tk_Token = TK_SLASH;
+				break;
+		}
+		break;
+	case '%':
+		if (Chr == '=') {
+			tk_Token = TK_MODASSIGN;
+			NextChr();
+		} else
+			tk_Token = TK_PERCENT;
+		break;
+	case '=':
+		if (Chr == '=') {
+			tk_Token = TK_EQ;
+			NextChr();
+		} else
+			tk_Token = TK_ASSIGN;
+		break;
+	case '<':
+		switch (Chr)
+		{
+		case '=':
+			tk_Token = TK_LE;
+			NextChr();
+			break;
+		case '<':
+			NextChr();
+			if (Chr == '=')
+			{
+				tk_Token = TK_LSASSIGN;
+				NextChr();
+			}
+			else
+				tk_Token = TK_LSHIFT;
+			break;
+		default:
+			tk_Token = TK_LT;
+			break;
+		}
+		break;
+	case '>':
+		if (Chr == '=') {
+			tk_Token = TK_GE;
+			NextChr();
+		} else if (Chr == '>') {
+			NextChr();
+			if (Chr == '=') {
+				tk_Token = TK_RSASSIGN;
+				NextChr();
+			} else {
+				tk_Token = TK_RSHIFT;
+			}
+		} else {
+			tk_Token = TK_GT;
+		}
+		break;
+	case '!':
+		if (Chr == '=') {
+			tk_Token = TK_NE;
+			NextChr();
+		} else {
+			tk_Token = TK_NOT;
+		}
+		break;
+	case '&':
+		if (Chr == '&') {
+			tk_Token = TK_ANDLOGICAL;
+			NextChr();
+		} else if (Chr == '=') {
+			tk_Token = TK_ANDASSIGN;
+			NextChr();
+		} else {
+			tk_Token = TK_ANDBITWISE;
+		}
+		break;
+	case '|':
+		if (Chr == '|') {
+			tk_Token = TK_ORLOGICAL;
+			NextChr();
+		} else if (Chr == '=') {
+			tk_Token = TK_ORASSIGN;
+			NextChr();
+		} else {
+			tk_Token = TK_ORBITWISE;
+		}
+		break;
+	case '(':
+		tk_Token = TK_LPAREN;
+		break;
+	case ')':
+		tk_Token = TK_RPAREN;
+		break;
+	case '{':
+		tk_Token = TK_LBRACE;
+		break;
+	case '}':
+		tk_Token = TK_RBRACE;
+		break;
+	case '[':
+		tk_Token = TK_LBRACKET;
+		break;
+	case ']':
+		tk_Token = TK_RBRACKET;
+		break;
+	case ':':
+		tk_Token = TK_COLON;
+		break;
+	case ';':
+		tk_Token = TK_SEMICOLON;
+		break;
+	case ',':
+		tk_Token = TK_COMMA;
+		break;
+	case '.':
+		tk_Token = TK_PERIOD;
+		break;
+	case '#':
+		tk_Token = TK_NUMBERSIGN;
+		break;
+	case '^':
+		if (Chr == '=') {
+			tk_Token = TK_EORASSIGN;
+			NextChr();
+		}
+		else
+			tk_Token = TK_EORBITWISE;
+		break;
+	case '~':
+		tk_Token = TK_TILDE;
+		break;
+	case '?':
+		tk_Token = TK_QSTART;
+		break;
+	case '\'':
+		if (Chr == '\\') {
+			NextChr();
+			switch (Chr) {
+				case '0': case '1': case '2': case '3':
+				case '4': case '5': case '6': case '7':
+					tk_Number = OctalChar();
+					break;
+				case 'x': case 'X':
+					NextChr();
+					EvalHexConstant();
+					if (Chr != '\'') {
+						ERR_Exit(ERR_BAD_CHARACTER_CONSTANT, true, NULL);
+					}
+					NextChr();
+					break;
+				case 'a':
+					tk_Number = '\a';
+					break;
+				case 'b':
+					tk_Number = '\b';
+					break;
+				case 't':
+					tk_Number = '\t';
+					break;
+				case 'v':
+					tk_Number = '\v';
+					break;
+				case 'n':
+					tk_Number = '\n';
+					break;
+				case 'f':
+					tk_Number = '\f';
+					break;
+				case 'r':
+					tk_Number = '\r';
+					break;
+				case '\'':
+				case '\\':
+					tk_Number = Chr;
+					break;
+				default:
+					ERR_Exit(ERR_BAD_CHARACTER_CONSTANT, true, NULL);
+			}
+			tk_Token = TK_NUMBER;
+		} else if (Chr == '\'') {
+			ERR_Exit(ERR_BAD_CHARACTER_CONSTANT, true, NULL);
+		} else {
+			tk_Number = Chr;
+			tk_Token = TK_NUMBER;
+		}
+		NextChr();
+		if (Chr != '\'') {
+			ERR_Exit(ERR_BAD_CHARACTER_CONSTANT, true, NULL);
+		}
+		NextChr();
+		break;
+	default:
+		ERR_Exit(ERR_BAD_CHARACTER, true, NULL);
+		break;
 	}
 }
 
@@ -1259,7 +1266,7 @@ static void ProcessSpecialToken() {
 //==========================================================================
 
 static void NextChr() {
-	if (Pos + 1 >= File.size) {
+	if (Pos + 1 >= File.size()) {
 		Chr = EOF_CHARACTER;
 		return;
 	}
@@ -1285,7 +1292,8 @@ static void NextChr() {
 //
 //==========================================================================
 
-static char PeekChr() {
+static char PeekChr()
+{
 	if (Pos + 1 >= File.size)
 		return EOF_CHARACTER;
 
@@ -1360,7 +1368,8 @@ void BumpMasterSourceLine(char Chr, bool clear) // master line - Ty 07jan2000
 //
 //==========================================================================
 
-void TK_SkipLine() {
+void TK_SkipLine()
+{
 	string sourcenow = tk_SourceName;
 	int linenow = tk_Line;
 	do NextChr(); while (tk_Line == linenow && tk_SourceName == sourcenow && Chr != EOF_CHARACTER);

@@ -22,11 +22,8 @@
 // PRIVATE FUNCTION PROTOTYPES ---------------------------------------------
 
 static ACS_Node *Find(string name, ACS_Node *root);
-static ACS_Node *Insert(string name, int type, ACS_Node **root);
-static void FreeNodes(ACS_Node *root);
-static void FreeNodesAtDepth(int depth);
-static void DeleteNode(ACS_Node *node, ACS_Node **parent_p);
-static void ClearShared(ACS_Node *root);
+static ACS_Node *Insert(string name, NodeType type, DepthVal depth);
+static ACS_DepthRoot GetDepthRoot(ACS_Node &node);
 
 // EXTERNAL DATA DECLARATIONS ----------------------------------------------
 
@@ -34,7 +31,7 @@ static void ClearShared(ACS_Node *root);
 
 // PRIVATE DATA DEFINITIONS ------------------------------------------------
 
-static ACS_Function InternalFunctions[] =
+static ACS_Function InternalFunctions[]
 {
 	{ "tagwait", PCD_TAGWAITDIRECT, PCD_TAGWAIT, 1, 0, 0, false, true },
 	{ "polywait", PCD_POLYWAITDIRECT, PCD_POLYWAIT, 1, 0, 0, false, true },
@@ -182,8 +179,9 @@ static ACS_Function InternalFunctions[] =
 	{ "", PCD_NOP, PCD_NOP, 0, 0, 0, false, false }
 };
 
+// Additional info for debugging nodes, ignore if release build
 #ifdef _DEBUG
-static string SymbolTypeNames[] =
+static string SymbolTypeNames[]
 {
 	"SY_DUMMY",
 	"SY_LABEL",
@@ -200,6 +198,16 @@ static string SymbolTypeNames[] =
 	"SY_INTERNFUNC",
 	"SY_SCRIPTFUNC"
 };
+
+static string NodeTypeString(NodeType type)
+{
+	return SymbolTypeNames[type];
+}
+#else
+static string NodeTypeString(NodeType type)
+{
+	return string(type);
+}
 #endif
 
 // CODE --------------------------------------------------------------------
@@ -234,13 +242,7 @@ void sym_Init()
 //==========================================================================
 ACS_Node *sym_Find(string name)
 {
-	ACS_Node * node = sym_FindLocal(name);
-
-	//[JRT] Shouldn't it check local first?
-	if (!node)
-		return sym_FindGlobal(name);
-	
-	return node;
+	return Find(name, pa_CurrentDepth);
 }
 
 //==========================================================================
@@ -257,7 +259,7 @@ ACS_Node *sym_FindGlobal(string name)
 
 		if(node->type == NODE_FUNCTION)
 		{
-			PC_AddFunction(node);
+			pCode_AddFunction(node);
 		}
 		else if (node->type == NODE_VARIABLE)
 		{
@@ -286,47 +288,26 @@ ACS_Node *sym_FindGlobal(string name)
 	return node;
 }
 
-//==========================================================================
-//
-// sym_Findlocal
-//
-//==========================================================================
-ACS_Node *sym_FindLocal(string name)
-{
-	ACS_DepthRoot *depth = &sym_Depths[pa_CurrentDepth];
-
-	while (depth->Current() != pa_FileDepth)
-	{
-		ACS_Node *node = Find(name, depth);
-
-		if (!node)	// pop depth, re-check;
-			depth = depth
-
-	}
-}
-
-//==========================================================================
-//
-// Find
-//
-//==========================================================================
-static ACS_Node *Find(string name, int depth)
+static ACS_Node *Find(string name, DepthVal depth)
 {
 	for (ACS_Node &node : sym_Nodes)
 	{
-		if(node.name().compare(name) == 0)
-			if(sym_Depths[node.depth].current == depth)
+		if (node.name().compare(name) == 0)
+		{
+			if (sym_Depths[node.depth].current == depth)
 				return &node;
+
 			else
 			{
-				int cur = sym_Depths[node.depth].current;
-				while (cur != 0)
+				auto cur = GetDepthRoot(node);
+				while (cur.isParentValid())
 				{
-					cur = sym_Depths[node.depth].parent;
-					if (cur == depth)
+					cur = GetDepthRoot(node).Parent();
+					if (cur.Current() == depth)
 						return &node;
 				}
 			}
+		}
 	}
 	return NULL;
 }
@@ -336,12 +317,19 @@ static ACS_Node *Find(string name, int depth)
 // SY_InsertLocal
 //
 //==========================================================================
-ACS_Node *SY_InsertLocal(string name, int type)
+ACS_Node *SY_InsertLocal(string name, NodeType type)
 {
-	if(Find(name, 0))
-		ERR_Error(ERR_LOCAL_VAR_SHADOWED, true);
-	
-	MS_Message(MSG_DEBUG, "Inserting local identifier: %s (%s)\n", name, SymbolTypeNames[type]);
+	auto result = Find(name, pa_CurrentDepth);
+	if (result)
+	{
+		if (result->depth() == pa_CurrentDepth)
+			ERR_Error(ERR_REDEFINED_IDENTIFIER, true, name);
+
+		else
+			ERR_Error(ERR_LOCAL_VAR_SHADOWED, true, name); //TODO: Warning, not error
+	}
+
+	Message(MSG_DEBUG, "Inserting local identifier: " + name + " (" + NodeTypeString(type) + ")");
 
 	return Insert(name, type, pa_CurrentDepth);
 }
@@ -351,7 +339,7 @@ ACS_Node *SY_InsertLocal(string name, int type)
 // SY_InsertGlobal
 //
 //==========================================================================
-ACS_Node *SY_InsertGlobal(string name, int type)
+ACS_Node *SY_InsertGlobal(string name, NodeType type)
 {
 	MS_Message(MSG_DEBUG, "Inserting global identifier: %s (%s)\n", name, SymbolTypeNames[type]);
 	return Insert(name, type, DEPTH_GLOBAL);
@@ -362,7 +350,7 @@ ACS_Node *SY_InsertGlobal(string name, int type)
 // SY_InsertGlobalUnique
 //
 //==========================================================================
-ACS_Node *SY_InsertGlobalUnique(string name, int type)
+ACS_Node *SY_InsertGlobalUnique(string name, NodeType type)
 {
 	if(sym_FindGlobal(name))
 	{ // Redefined
@@ -376,82 +364,47 @@ ACS_Node *SY_InsertGlobalUnique(string name, int type)
 // Insert
 //
 //==========================================================================
-static ACS_Node *Insert(string name, int type)
+static ACS_Node *Insert(string name, NodeType type, DepthVal depth = pa_CurrentDepth)
 {
-	ACS_Node *node = new ACS_Node((NodeType)type, name);
+	ACS_Node node = ACS_Node(type, name);
 
-	node->isImported = (ImportMode == IMPORT_Importing);
+	node.isImported = (ImportMode == IMPORT_Importing);
+	node.depth = depth;
 
-	sym_Nodes.add(*node);
+	sym_Nodes.add(move(node));
 	return(&sym_Nodes.lastAdded());
 }
 
 //==========================================================================
 //
-// SY_FreeLocals
+// sym_ClearAtDepth
 //
 //==========================================================================
-void SY_FreeLocals()
+void sym_ClearAtDepth(int depth)
 {
-	for (ACS_Node &node : sym_Nodes)
-		if(node.depth == pa_CurrentDepth)
-			FreeNodes(&node);
+	Message(MSG_DEBUG, "Clearing nodes at depth " + string(depth) + "; including all child depths");
 
-	Message(MSG_DEBUG, "Freeing local identifiers");
-}
-
-//==========================================================================
-//
-// SY_FreeGlobals
-//
-//==========================================================================
-void SY_FreeGlobals()
-{
-	Message(MSG_DEBUG, "Freeing global identifiers");
-	for (ACS_Node &node : sym_Nodes)
-		FreeNodes(&node);
-}
-
-//==========================================================================
-//
-// FreeNodes
-//
-//==========================================================================
-static void FreeNodes(ACS_Node *root)
-{
-	delete root;
-}
-
-//==========================================================================
-//
-// SY_FreeConstants
-//
-//==========================================================================
-void SY_FreeConstants(int depth)
-{
-	Message(MSG_DEBUG, "Freeing constants for depth " + string(depth));
-	FreeNodesAtDepth(depth);
-}
-
-//==========================================================================
-//
-// SY_ClearShared
-//
-//==========================================================================
-void SY_ClearShared()
-{
-	Message(MSG_DEBUG, "Marking library exports as unused");
-	ClearShared(0);
-}
-
-//==========================================================================
-//
-// ClearShared
-//
-//==========================================================================
-static void ClearShared(ACS_Node *node)
-{
 	for (ACS_Node item : sym_Nodes)
-		if (node->depth == item.depth)
-			sym_Nodes.erase(sym_Nodes.begin() + item.index);
+		ClearChild(GetDepthRoot(item), item, depth);
+}
+
+// Gets an ACS_DepthRoot from the node
+static ACS_DepthRoot GetDepthRoot(ACS_Node& node)
+{
+	return sym_Depths[node.depth()];
+}
+
+// Recurrsively clears children
+static void ClearChild(ACS_DepthRoot &root, ACS_Node &node, int depth)
+{
+	if (root.Current() == depth)
+		ClearNode(node);
+	else if (root.isParentValid())
+		ClearChild(root.WidenScope(), node, depth);
+}
+
+// Clears the given node
+static void ClearNode(ACS_Node &node)
+{
+	sym_Nodes.erase(sym_Nodes.begin() + node.index);
 }

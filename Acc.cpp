@@ -98,7 +98,7 @@ int main(int argc, char **argv)
 
 
 
-	for (int i = 0; pa_TypedScriptCounts[i].TypeName; i++)
+	for (int i = 0; !pa_TypedScriptCounts[i].TypeName.empty(); i++)
 	{
 		if (pa_TypedScriptCounts[i].TypeCount > 0)
 		{
@@ -277,7 +277,9 @@ static void ProcessArgs()
 //==========================================================================
 static void DisplayUsage()
 {
-	line("\nUsage: ACC [options] source[.acs] [object[.o]]\n");
+	line();
+	line("Usage: ACC [options] source[.acs] [object[.o]]");
+	line();
 	line("-i [path]  Add include path to find include files");
 	line("-d[file]   Output debugging information");
 	line("-h         Create pcode compatible with Hexen and old ZDooms");

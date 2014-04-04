@@ -370,6 +370,7 @@ struct ACS_FuncCall
 	VarRefList args;			// Arguments
 };
 
+// Class for arrays, keeps track of dimensions
 class ACS_Array : public ACS_VarData, public ACS_IndexedObject<ACS_Array>, public ACS_DeletableObject<ACS_Var>
 {
 protected:
@@ -425,6 +426,7 @@ public:
 	}
 };
 
+// Class for ordered storage
 class ACS_Node
 {
 public:
@@ -492,6 +494,7 @@ public:
 	}
 };
 
+// Class for the depth level
 class ACS_DepthRoot : public ACS_IndexedObject<ACS_DepthRoot>
 {
 protected:
@@ -516,7 +519,7 @@ public:
 		return sym_Depths.lastIndex();
 	}
 
-	const ACS_DepthRoot& WidenScope()
+	ACS_DepthRoot& WidenScope()
 	{
 		if (!isParentValid())
 			return NULL;
@@ -615,9 +618,7 @@ ACS_Node *sym_FindGlobal(string name);
 ACS_Node *sym_InsertLocal(string name, NodeType type);
 ACS_Node *sym_InsertGlobal(string name, NodeType type);
 ACS_Node *sym_InsertGlobalUnique(string name, NodeType type);
-void sym_FreeLocals();
-void sym_FreeGlobals();
-void sym_ClearShared();
+void sym_ClearAtDepth(int depth);
 
 // PUBLIC DATA DECLARATIONS ------------------------------------------------
 
