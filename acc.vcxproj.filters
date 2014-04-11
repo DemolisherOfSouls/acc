@@ -1,0 +1,152 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{b2e221cb-56e1-41ba-9a78-682949739623}</UniqueIdentifier>
+      <Extensions>cpp;c;cxx;rc;def;r;odl;idl;hpj;bat</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{9c778087-96cd-4fe8-b565-fdf4c3e78104}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl</Extensions>
+    </Filter>
+    <Filter Include="ACS Headers">
+      <UniqueIdentifier>{5a08bff6-355e-42a6-9d65-747bed8519b6}</UniqueIdentifier>
+      <Extensions>acs</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{be4bd372-18e2-4ef7-a7a3-aff9aac581c7}</UniqueIdentifier>
+      <Extensions>ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe</Extensions>
+    </Filter>
+    <Filter Include="Build Scripts">
+      <UniqueIdentifier>{654238d1-8ba7-45b7-8af8-8b6b1c1f8f0d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Git Stuff">
+      <UniqueIdentifier>{a092d5ea-d9d7-4492-b15c-4f013ed5a69f}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Common.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Error.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Misc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Parse.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Pcode.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Strlist.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Symbol.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Token.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Headers\zcommon.acs">
+      <Filter>ACS Headers</Filter>
+    </None>
+    <None Include="Headers\zdefs.acs">
+      <Filter>ACS Headers</Filter>
+    </None>
+    <None Include="Headers\zprops.acs">
+      <Filter>ACS Headers</Filter>
+    </None>
+    <None Include="Headers\zspecial.acs">
+      <Filter>ACS Headers</Filter>
+    </None>
+    <None Include="Headers\zstruct.acs">
+      <Filter>ACS Headers</Filter>
+    </None>
+    <None Include="Headers\ztypes.acs">
+      <Filter>ACS Headers</Filter>
+    </None>
+    <None Include="Headers\zwvars.acs">
+      <Filter>ACS Headers</Filter>
+    </None>
+    <None Include="Makefile">
+      <Filter>Build Scripts</Filter>
+    </None>
+    <None Include="Headers\Tid.acs">
+      <Filter>ACS Headers</Filter>
+    </None>
+    <None Include="Headers\Special.acs">
+      <Filter>ACS Headers</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Headers\Fixed.acs">
+      <Filter>ACS Headers</Filter>
+    </Text>
+    <Text Include="Headers\String.acs">
+      <Filter>ACS Headers</Filter>
+    </Text>
+    <Text Include="Headers\Actor.acs">
+      <Filter>ACS Headers</Filter>
+    </Text>
+    <Text Include="readme.txt">
+      <Filter>Git Stuff</Filter>
+    </Text>
+    <Text Include=".gitattributes">
+      <Filter>Git Stuff</Filter>
+    </Text>
+    <Text Include=".gitignore">
+      <Filter>Git Stuff</Filter>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Icons\ACC.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Icons\icon.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="PreBuild_Debug.bat">
+      <Filter>Build Scripts</Filter>
+    </CustomBuild>
+    <CustomBuild Include="PreBuild_Release.bat">
+      <Filter>Build Scripts</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Main.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Acc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Error.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Misc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Parse.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Pcode.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Symbol.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Token.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Strlist.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

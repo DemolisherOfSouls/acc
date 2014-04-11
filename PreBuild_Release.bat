@@ -1,0 +1,1 @@
+xcopy Headers Release/Headers /f /d /y

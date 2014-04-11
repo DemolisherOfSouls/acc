@@ -1,0 +1,1 @@
+xcopy Headers Debug/Headers /f /d /y

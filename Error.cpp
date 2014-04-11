@@ -6,7 +6,7 @@
 
 // HEADER FILES ------------------------------------------------------------
 
-#include <cstdio>
+#include <cstdio.h>
 #include "common.h"
 #include "error.h"
 #include "token.h"
@@ -205,6 +205,7 @@ static struct ErrorName
 	{ ERR_BAD_METHOD, "Method %s is not found within %s." },
 	{ ERR_NO_STRUCT_ARRAY_INIT, "%s: Cannot auto-initialize an array of structs, must be initialized to default constructor."},
 	{ ERR_INVALID_ARRAY_SIZE, "Invalid array size, dimensions must be positive integers." },
+	{ ERR_CANNOT_ACCESS_PRIVATE, "Cannot access private member %s in %s %s." },
 	//[JRT] End new errors
 	{ ERR_NONE, "" }
 };
@@ -233,14 +234,7 @@ void ERR_ErrorAt(string source, int line)
 // ERR_Error
 //
 //==========================================================================
-void ERR_Error(ErrorNumber error, bool info, ...)
-{
-	va_list args;
-	va_start(args, info);
-	ERR_ErrorV(error, info, args);
-	va_end(args);
-}
-void ERR_Error(ErrorNumber error, bool showDetails, vector<string> *list = NULL)
+void ERR_Error(ErrorNumber error, bool showDetails, VecStr *list = NULL)
 {
 	// No error, no problem
 	if (error == ERR_NONE)
@@ -334,12 +328,9 @@ void ERR_Error(ErrorNumber error, bool showDetails, vector<string> *list = NULL)
 // ERR_Exit
 //
 //==========================================================================
-void ERR_Exit(int error, bool info, ...)
+void ERR_Exit(ErrorNumber error, bool showDetails, VecStr *list = NULL)
 {
-	va_list args;
-	va_start(args, info);
-	ERR_ErrorV(error, info, args);
-	va_end(args);
+	ERR_Error(error, showDetails, list);
 	ERR_Finish();
 }
 
