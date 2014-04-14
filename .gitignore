@@ -1,5 +1,6 @@
 /Debug
 /Release
+/nbproject
 /acc.ncb
 /acc.opt
 /acc.plg
@@ -13,4 +14,4 @@
 /t
 /zdefs.acs.orig
 /acc.opensdf
-/Backup/
+/Backup
