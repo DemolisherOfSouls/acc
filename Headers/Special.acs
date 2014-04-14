@@ -333,6 +333,7 @@ const static enum ActionSpecials
 	-75 : CheckFlag(tid, string),
 	-76 : SetLineActivation(int int),
 	-77 : GetLineActivation(int),
+	-78 : GetActorPowerupTics(2),
 
 	// Zandronum's
 	-100 : ResetMap(),
