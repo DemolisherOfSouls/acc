@@ -1,4 +1,3 @@
-
 //**************************************************************************
 //**
 //** token.h
@@ -152,7 +151,7 @@ enum tokenType_t : int
 void TK_Init();
 void TK_OpenSource(string fileName);
 void TK_Include(string fileName);
-void TK_Import(string fileName, enum ImportModes prevMode);
+void TK_Import(string fileName, ImportModes prevMode);
 void TK_CloseSource();
 int TK_GetDepth();
 tokenType_t TK_NextToken();
